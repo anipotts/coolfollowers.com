@@ -1,54 +1,83 @@
-import { Suspense } from "react";
 import Link from "next/link";
-import { PasswordForm } from "@/components/password-form";
+import { loadFollowersSafe, loadProfileSafe } from "@/lib/ig/load";
+import { UsersGrid } from "@/components/users-grid";
+import { RefreshButton } from "@/components/refresh-button";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [profile, followers] = await Promise.all([
+    loadProfileSafe(),
+    loadFollowersSafe(),
+  ]);
+
   return (
-    <div className="container mx-auto px-4 py-16 md:py-24">
-      <div className="flex flex-col items-center text-center space-y-8">
-        <div className="space-y-4 max-w-2xl">
-          <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
-            Welcome to{" "}
-            <span className="text-primary">coolfollowers</span>
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl">
+            Cool Followers of{" "}
+            <a
+              href="https://instagram.com/anipottsbuilds"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              @anipottsbuilds
+            </a>
           </h1>
-          <p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl">
-            A personal Instagram analytics dashboard. View your profile stats,
-            browse posts, and explore insights.
+          <p className="mx-auto max-w-[600px] text-muted-foreground md:text-lg">
+            {profile
+              ? `${profile.followersCount?.toLocaleString() || 0} followers and counting`
+              : "Loading follower data..."}
           </p>
         </div>
 
-        <Suspense fallback={<div className="h-64 w-full max-w-md animate-pulse bg-muted rounded-lg" />}>
-          <PasswordForm />
-        </Suspense>
+        {/* Navigation */}
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link
+            href="/dashboard"
+            className="text-sm font-medium hover:text-primary underline-offset-4 hover:underline"
+          >
+            View Dashboard
+          </Link>
+          <Link
+            href="/dashboard/posts"
+            className="text-sm font-medium hover:text-primary underline-offset-4 hover:underline"
+          >
+            Browse Posts
+          </Link>
+          <Link
+            href="/dashboard/insights"
+            className="text-sm font-medium hover:text-primary underline-offset-4 hover:underline"
+          >
+            Analytics
+          </Link>
+        </div>
 
-        <div className="mt-8 text-center">
+        {/* Followers Grid */}
+        {followers && followers.length > 0 ? (
+          <UsersGrid
+            users={followers}
+            title="Followers"
+            emptyMessage="No followers data yet. Click refresh to load."
+          />
+        ) : (
+          <div className="text-center py-16 space-y-6">
+            <p className="text-muted-foreground">
+              No follower data loaded yet. Click the button below to fetch data from Instagram.
+            </p>
+            <RefreshButton />
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center pt-8 border-t">
           <Link
             href="/privacy"
             className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
           >
-            How it works & Privacy Policy
+            Privacy Policy
           </Link>
-        </div>
-
-        <div className="mt-8 grid gap-6 sm:grid-cols-3 text-left max-w-3xl">
-          <div className="space-y-2">
-            <h3 className="font-semibold">Live Data Refresh</h3>
-            <p className="text-sm text-muted-foreground">
-              Fetch fresh Instagram data on-demand with smart caching.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold">Deep Analytics</h3>
-            <p className="text-sm text-muted-foreground">
-              See who likes your posts, full comment threads, and engagement trends.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold">Private & Secure</h3>
-            <p className="text-sm text-muted-foreground">
-              Password protected. Your data stays on your server.
-            </p>
-          </div>
         </div>
       </div>
     </div>
