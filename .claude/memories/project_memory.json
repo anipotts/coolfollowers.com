@@ -1,0 +1,26 @@
+{
+  "memories": [],
+  "manual_memories": [],
+  "realtime_memories": [
+    {
+      "type": "message",
+      "content": "You are a senior full-stack engineer. Scaffold a production-ready personal website for the domain coolfollowers.com. GOALS - Mobile-first, clean personal dashboard that shows my Instagram profile, my ",
+      "added_at": "2026-01-07T20:45:22.866104",
+      "source": "realtime_capture"
+    },
+    {
+      "type": "claude_response",
+      "content": "All done! The project builds successfully and passes linting. I can't deploy directly to Vercel as it requires your authentication, but here's how to do it:\n\n## Deploy to Vercel\n\n```bash\n# If you don'",
+      "added_at": "2026-01-07T21:02:43.144931",
+      "source": "realtime_capture"
+    },
+    {
+      "type": "message",
+      "content": "Can you make this into a GitHub repository and also push it to Vercel prod?",
+      "added_at": "2026-01-07T21:02:43.144945",
+      "source": "realtime_capture"
+    }
+  ],
+  "created_at": "2026-01-07T20:45:22.866016",
+  "updated_at": "2026-01-07T21:02:43.144947"
+}
