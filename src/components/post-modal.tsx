@@ -12,7 +12,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LikersList } from "@/components/likers-list";
+import { CommentsList } from "@/components/comments-list";
+import {
+  ExternalLink,
+  MapPin,
+  Hash,
+  AtSign,
+  UserCircle,
+  Play,
+  Heart,
+  MessageCircle,
+  Eye,
+} from "lucide-react";
 import type { Post } from "@/lib/ig/schema";
 
 interface PostModalProps {
@@ -21,35 +34,26 @@ interface PostModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function ExternalLinkIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" x2="21" y1="14" y2="3" />
-    </svg>
-  );
-}
-
 export function PostModal({ post, open, onOpenChange }: PostModalProps) {
   if (!post) return null;
 
-  const mediaTypeLabels = {
+  const typeLabels: Record<string, string> = {
+    GraphImage: "Photo",
+    GraphVideo: "Video",
+    GraphSidecar: "Carousel",
     image: "Photo",
     video: "Video",
     carousel: "Carousel",
   };
+
+  const mediaType = post.typename || post.mediaType || "image";
+  const mediaLabel = typeLabels[mediaType] || "Post";
+  const hasHashtags = (post.captionHashtags?.length || 0) > 0;
+  const hasMentions = (post.captionMentions?.length || 0) > 0;
+  const hasTaggedUsers = (post.taggedUsers?.length || 0) > 0;
+  const hasLocation = !!post.location;
+  const hasLikers = (post.likers?.length || 0) > 0;
+  const hasComments = (post.comments?.length || 0) > 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -57,71 +61,173 @@ export function PostModal({ post, open, onOpenChange }: PostModalProps) {
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             Post Details
-            <Badge variant="secondary">{mediaTypeLabels[post.mediaType]}</Badge>
+            <Badge variant="secondary">{mediaLabel}</Badge>
+            {post.isPinned && <Badge variant="outline">Pinned</Badge>}
+            {post.isSponsored && <Badge variant="destructive">Sponsored</Badge>}
           </SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 space-y-4">
           {/* Media Preview */}
-          <div className="relative aspect-square rounded-lg overflow-hidden">
+          <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
             <Image
-              src={post.mediaUrls[0]}
+              src={post.mediaUrl || post.mediaUrls?.[0] || ""}
               alt={post.caption || "Instagram post"}
               fill
               className="object-cover"
             />
+            {post.isVideo && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <Play className="h-12 w-12 text-white" fill="white" />
+              </div>
+            )}
           </div>
 
-          {/* Multiple images indicator */}
-          {post.mediaUrls.length > 1 && (
+          {/* Carousel indicator */}
+          {(post.sidecarItems?.length || 0) > 0 && (
             <p className="text-xs text-muted-foreground">
-              +{post.mediaUrls.length - 1} more image(s) in carousel
+              {post.sidecarItems!.length} items in carousel
             </p>
           )}
 
           {/* Stats */}
           <div className="flex gap-6 text-sm">
-            <div>
+            <div className="flex items-center gap-1.5">
+              <Heart className="h-4 w-4 text-red-500" />
               <span className="font-bold">{post.likeCount.toLocaleString()}</span>
-              <span className="text-muted-foreground ml-1">likes</span>
+              <span className="text-muted-foreground">likes</span>
             </div>
-            <div>
+            <div className="flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4 text-blue-500" />
               <span className="font-bold">{post.commentCount.toLocaleString()}</span>
-              <span className="text-muted-foreground ml-1">comments</span>
+              <span className="text-muted-foreground">comments</span>
             </div>
+            {post.videoViewCount && (
+              <div className="flex items-center gap-1.5">
+                <Eye className="h-4 w-4 text-green-500" />
+                <span className="font-bold">{post.videoViewCount.toLocaleString()}</span>
+                <span className="text-muted-foreground">views</span>
+              </div>
+            )}
           </div>
 
           {/* Caption */}
           <div>
             <h4 className="text-sm font-medium mb-1">Caption</h4>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
               {post.caption || <span className="italic">No caption</span>}
             </p>
           </div>
 
+          {/* Location */}
+          {hasLocation && (
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span>{post.location!.name}</span>
+            </div>
+          )}
+
+          {/* Hashtags */}
+          {hasHashtags && (
+            <div>
+              <div className="flex items-center gap-1.5 text-sm font-medium mb-2">
+                <Hash className="h-4 w-4" />
+                Hashtags
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {post.captionHashtags!.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    #{tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mentions */}
+          {hasMentions && (
+            <div>
+              <div className="flex items-center gap-1.5 text-sm font-medium mb-2">
+                <AtSign className="h-4 w-4" />
+                Mentions
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {post.captionMentions!.map((mention) => (
+                  <Badge key={mention} variant="outline" className="text-xs">
+                    @{mention}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tagged Users */}
+          {hasTaggedUsers && (
+            <div>
+              <div className="flex items-center gap-1.5 text-sm font-medium mb-2">
+                <UserCircle className="h-4 w-4" />
+                Tagged Users
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {post.taggedUsers!.map((user) => (
+                  <Badge key={user} variant="outline" className="text-xs">
+                    @{user}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Metadata */}
-          <div className="text-sm text-muted-foreground">
-            <p>
-              Posted: {format(new Date(post.timestamp), "PPP 'at' p")}
-            </p>
-            <p>Shortcode: {post.shortcode}</p>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>Posted: {format(new Date(post.timestamp), "PPP 'at' p")}</p>
+            <p>ID: {post.shortcode}</p>
+            {post.videoDuration && (
+              <p>Duration: {Math.round(post.videoDuration)}s</p>
+            )}
           </div>
 
           {/* Link to Instagram */}
           <Button asChild variant="outline" className="w-full">
-            <Link href={post.permalink} target="_blank" rel="noopener noreferrer">
+            <Link
+              href={post.permalink || `https://www.instagram.com/p/${post.shortcode}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               View on Instagram
-              <ExternalLinkIcon className="ml-2 h-4 w-4" />
+              <ExternalLink className="ml-2 h-4 w-4" />
             </Link>
           </Button>
 
           <Separator />
 
-          {/* Likers */}
-          <div>
-            <h4 className="text-sm font-medium mb-2">Likers</h4>
-            <LikersList likers={post.likers} totalLikes={post.likeCount} />
-          </div>
+          {/* Likers and Comments Tabs */}
+          {(hasLikers || hasComments) ? (
+            <Tabs defaultValue="likers" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="likers">
+                  Likers ({post.likers?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="comments">
+                  Comments ({post.comments?.length || 0})
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="likers" className="mt-4">
+                <LikersList likers={post.likers || []} totalLikes={post.likeCount} />
+              </TabsContent>
+              <TabsContent value="comments" className="mt-4">
+                <CommentsList
+                  comments={post.comments || []}
+                  totalComments={post.commentCount}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="space-y-4">
+              <LikersList likers={[]} totalLikes={post.likeCount} />
+              <CommentsList comments={[]} totalComments={post.commentCount} />
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>
