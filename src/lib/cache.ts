@@ -1,7 +1,21 @@
-import { kv } from "@vercel/kv";
+import Redis from "ioredis";
 
 const IG_USERNAME = process.env.IG_USERNAME || "anipottsbuilds";
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_SECONDS || "3600", 10);
+const REDIS_URL = process.env.REDIS_URL || "";
+
+// Create Redis client (lazy initialization)
+let redisClient: Redis | null = null;
+
+function getRedis(): Redis {
+  if (!redisClient) {
+    if (!REDIS_URL) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+    redisClient = new Redis(REDIS_URL);
+  }
+  return redisClient;
+}
 
 // Key builders
 export const keys = {
@@ -18,8 +32,9 @@ export type RefreshStatus = "idle" | "running" | "complete" | `error:${string}`;
 // Generic cache operations
 export async function getCachedData<T>(key: string): Promise<T | null> {
   try {
-    const data = await kv.get<T>(key);
-    return data;
+    const redis = getRedis();
+    const data = await redis.get(key);
+    return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error(`Failed to get cached data for ${key}:`, error);
     return null;
@@ -32,7 +47,8 @@ export async function setCachedData<T>(
   ttl: number = CACHE_TTL
 ): Promise<boolean> {
   try {
-    await kv.set(key, data, { ex: ttl });
+    const redis = getRedis();
+    await redis.setex(key, ttl, JSON.stringify(data));
     return true;
   } catch (error) {
     console.error(`Failed to set cached data for ${key}:`, error);
@@ -42,7 +58,8 @@ export async function setCachedData<T>(
 
 export async function deleteCachedData(key: string): Promise<boolean> {
   try {
-    await kv.del(key);
+    const redis = getRedis();
+    await redis.del(key);
     return true;
   } catch (error) {
     console.error(`Failed to delete cached data for ${key}:`, error);
@@ -53,7 +70,8 @@ export async function deleteCachedData(key: string): Promise<boolean> {
 // Staleness check
 export async function isCacheStale(maxAgeSeconds: number = CACHE_TTL): Promise<boolean> {
   try {
-    const lastRefresh = await kv.get<string>(keys.lastRefresh());
+    const redis = getRedis();
+    const lastRefresh = await redis.get(keys.lastRefresh());
     if (!lastRefresh) return true;
 
     const lastRefreshTime = new Date(lastRefresh).getTime();
@@ -68,7 +86,8 @@ export async function isCacheStale(maxAgeSeconds: number = CACHE_TTL): Promise<b
 
 export async function getLastRefreshTime(): Promise<Date | null> {
   try {
-    const lastRefresh = await kv.get<string>(keys.lastRefresh());
+    const redis = getRedis();
+    const lastRefresh = await redis.get(keys.lastRefresh());
     return lastRefresh ? new Date(lastRefresh) : null;
   } catch {
     return null;
@@ -76,22 +95,25 @@ export async function getLastRefreshTime(): Promise<Date | null> {
 }
 
 export async function setLastRefreshTime(): Promise<void> {
-  await kv.set(keys.lastRefresh(), new Date().toISOString());
+  const redis = getRedis();
+  await redis.set(keys.lastRefresh(), new Date().toISOString());
 }
 
 // Refresh status management
 export async function getRefreshStatus(): Promise<RefreshStatus> {
   try {
-    const status = await kv.get<RefreshStatus>(keys.refreshStatus());
-    return status || "idle";
+    const redis = getRedis();
+    const status = await redis.get(keys.refreshStatus());
+    return (status as RefreshStatus) || "idle";
   } catch {
     return "idle";
   }
 }
 
 export async function setRefreshStatus(status: RefreshStatus): Promise<void> {
+  const redis = getRedis();
   // Set status with 5-minute TTL to auto-clear stuck states
-  await kv.set(keys.refreshStatus(), status, { ex: 300 });
+  await redis.setex(keys.refreshStatus(), 300, status);
 }
 
 // Convenience functions for Instagram data

@@ -1,62 +1,63 @@
 {
-  "memories": [],
+  "memories": [
+    {
+      "content": "Project: coolfollowers.com - Personal Instagram analytics dashboard for @anipottsbuilds. Tech stack: Next.js 15, TypeScript, Tailwind CSS v4, shadcn/ui, Zod, Vercel Redis, Python serverless functions with Instaloader.",
+      "added_at": "2026-01-07T22:05:00.000000",
+      "source": "consolidated"
+    },
+    {
+      "content": "Deployment: GitHub repo https://github.com/anipotts/coolfollowers.com. Vercel at coolfollowerscom.vercel.app. Custom domain coolfollowers.com (sometimes unavailable, use Vercel URL as fallback).",
+      "added_at": "2026-01-07T22:05:00.000000",
+      "source": "consolidated"
+    },
+    {
+      "content": "Environment variables: SITE_PASSWORD (dashboard access), IG_USERNAME=anipottsbuilds, IG_SESSION_DATA (base64-encoded Instaloader session), REDIS_URL (from Vercel Redis integration).",
+      "added_at": "2026-01-07T22:05:00.000000",
+      "source": "consolidated"
+    },
+    {
+      "content": "Features implemented: Password-protected dashboard, live data refresh via /api/ig-refresh (Python), Redis caching with 1-hour TTL, posts with likers/comments, followers/following pages, timing analytics, hashtag performance.",
+      "added_at": "2026-01-07T22:05:00.000000",
+      "source": "consolidated"
+    },
+    {
+      "content": "Instagram session: Run 'instaloader --login=anipottsbuilds', complete 2FA if prompted, then base64-encode ~/.config/instaloader/session-anipottsbuilds. Sessions expire periodically and need regeneration.",
+      "added_at": "2026-01-07T22:05:00.000000",
+      "source": "consolidated"
+    },
+    {
+      "content": "Database: User has Vercel Redis (not Vercel KV). Python /api/ig-refresh.py uses standard redis library with redis.from_url(REDIS_URL). Requirements: instaloader==4.13.1, redis==5.0.1.",
+      "added_at": "2026-01-07T22:05:00.000000",
+      "source": "consolidated"
+    }
+  ],
   "manual_memories": [],
   "realtime_memories": [
     {
+      "type": "claude_response",
+      "content": "Your Instagram session needs to be regenerated. Run:\n\n```bash\nrm ~/.config/instaloader/session-anipottsbuilds\ninstaloader --login=anipottsbuilds\n```\n\nComplete 2FA if prompted, then:\n\n```bash\nbase64 -i",
+      "added_at": "2026-01-07T22:03:41.711231",
+      "source": "realtime_capture"
+    },
+    {
       "type": "message",
-      "content": "You are a senior full-stack engineer. Scaffold a production-ready personal website for the domain coolfollowers.com. GOALS - Mobile-first, clean personal dashboard that shows my Instagram profile, my ",
-      "added_at": "2026-01-07T20:45:22.866104",
+      "content": "💵 instaloader --login=anipottsbuilds Session file does not exist yet - Logging in. Enter Instagram password for anipottsbuilds: Logged in as anipottsbuilds. Saved session to /Users/anipotts/.config/in",
+      "added_at": "2026-01-07T22:03:41.711440",
       "source": "realtime_capture"
     },
     {
       "type": "claude_response",
-      "content": "All done! The project builds successfully and passes linting. I can't deploy directly to Vercel as it requires your authentication, but here's how to do it:\n\n## Deploy to Vercel\n\n```bash\n# If you don'",
-      "added_at": "2026-01-07T21:02:43.144931",
+      "content": "Now encode it:\n\n```bash\nbase64 -i ~/.config/instaloader/session-anipottsbuilds\n```\n\nCopy the output, then:\n\n1. Go to **Vercel → Project Settings → Environment Variables**\n2. **Edit** `IG_SESSION_DATA`",
+      "added_at": "2026-01-07T22:06:07.805544",
       "source": "realtime_capture"
     },
     {
       "type": "message",
-      "content": "Can you make this into a GitHub repository and also push it to Vercel prod?",
-      "added_at": "2026-01-07T21:02:43.144945",
-      "source": "realtime_capture"
-    },
-    {
-      "type": "claude_response",
-      "content": "Done! Here's the summary:\n\n## Deployment Complete\n\n| Resource | URL |\n|----------|-----|\n| **GitHub Repo** | https://github.com/anipotts/coolfollowers.com |\n| **Vercel Production** | https://coolfollo",
-      "added_at": "2026-01-07T21:07:58.707627",
-      "source": "realtime_capture"
-    },
-    {
-      "type": "message",
-      "content": "Okay cool. Now can you thoroughly read through the docs for this Instagram unofficial API? https://instaloader.github.io/ https://github.com/instaloader/instaloader. Make the landing page or coolfollo",
-      "added_at": "2026-01-07T21:07:58.707642",
-      "source": "realtime_capture"
-    },
-    {
-      "type": "claude_response",
-      "content": "★ Insight ─────────────────────────────────────\n- Build warnings about missing KV env vars are expected during static generation\n- The app gracefully handles empty cache with \"Refresh Data\" prompts\n- ",
-      "added_at": "2026-01-07T21:30:56.182878",
-      "source": "realtime_capture"
-    },
-    {
-      "type": "message",
-      "content": "How do I get this environment variable? - IG_SESSION_DATA (base64-encoded session)",
-      "added_at": "2026-01-07T21:30:56.182889",
-      "source": "realtime_capture"
-    },
-    {
-      "type": "claude_response",
-      "content": "## Creating the IG_SESSION_DATA\n\nThe `IG_SESSION_DATA` is a base64-encoded version of an Instaloader session file. Here's how to create it:\n\n### Step 1: Install Instaloader\n\n```bash\npip install instal",
-      "added_at": "2026-01-07T21:41:41.344863",
-      "source": "realtime_capture"
-    },
-    {
-      "type": "message",
-      "content": "this is happening on prod: Request URL https://coolfollowerscom.vercel.app/api/refresh Request Method POST Status Code 500 Internal Server Error Remote Address 64.29.17.131:443 Referrer Policy strict-",
-      "added_at": "2026-01-07T21:41:41.344875",
+      "content": "22:04:56.975 Failed to get cached data for ig:followers:anipottsbuilds: Error: @vercel/kv: Missing required environment variables KV_REST_API_URL and KV_REST_API_TOKEN 22:04:56.976 at Object.get (.nex",
+      "added_at": "2026-01-07T22:06:07.805579",
       "source": "realtime_capture"
     }
   ],
   "created_at": "2026-01-07T20:45:22.866016",
-  "updated_at": "2026-01-07T21:41:41.344876"
+  "updated_at": "2026-01-07T22:06:07.805581"
 }
