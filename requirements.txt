@@ -1,2 +1,1 @@
 instaloader==4.13.1
-redis==5.0.1
