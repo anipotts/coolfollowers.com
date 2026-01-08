@@ -2,7 +2,7 @@
 Instagram Data Refresh API
 Vercel Python Serverless Function
 
-This function fetches Instagram data using Instaloader and stores it in Vercel KV.
+This function fetches Instagram data using Instaloader and stores it in Redis.
 """
 
 import os
@@ -11,15 +11,13 @@ import base64
 import tempfile
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
 import instaloader
+import redis
 
 # Configuration
 IG_USERNAME = os.environ.get("IG_USERNAME", "anipottsbuilds")
 IG_SESSION_DATA = os.environ.get("IG_SESSION_DATA", "")
-KV_REST_API_URL = os.environ.get("KV_REST_API_URL", "")
-KV_REST_API_TOKEN = os.environ.get("KV_REST_API_TOKEN", "")
+REDIS_URL = os.environ.get("REDIS_URL", "")
 MAX_POSTS = int(os.environ.get("MAX_POSTS", "50"))
 MAX_LIKERS_PER_POST = int(os.environ.get("MAX_LIKERS_PER_POST", "50"))
 MAX_COMMENTS_PER_POST = int(os.environ.get("MAX_COMMENTS_PER_POST", "50"))
@@ -27,44 +25,11 @@ MAX_FOLLOWERS = int(os.environ.get("MAX_FOLLOWERS", "1000"))
 CACHE_TTL = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
 
 
-def kv_set(key: str, value, ttl: int = CACHE_TTL):
-    """Set a value in Vercel KV using REST API."""
-    if not KV_REST_API_URL or not KV_REST_API_TOKEN:
-        raise ValueError("KV credentials not configured")
-
-    # Vercel KV REST API endpoint for SET with EX (expiry)
-    url = f"{KV_REST_API_URL}/set/{key}?ex={ttl}"
-    data = json.dumps(value).encode('utf-8')
-
-    req = Request(url, data=data, method='POST')
-    req.add_header('Authorization', f'Bearer {KV_REST_API_TOKEN}')
-    req.add_header('Content-Type', 'application/json')
-
-    try:
-        with urlopen(req) as response:
-            return response.status == 200
-    except HTTPError as e:
-        print(f"KV SET error for {key}: {e}")
-        return False
-
-
-def kv_get(key: str):
-    """Get a value from Vercel KV using REST API."""
-    if not KV_REST_API_URL or not KV_REST_API_TOKEN:
-        raise ValueError("KV credentials not configured")
-
-    url = f"{KV_REST_API_URL}/get/{key}"
-
-    req = Request(url, method='GET')
-    req.add_header('Authorization', f'Bearer {KV_REST_API_TOKEN}')
-
-    try:
-        with urlopen(req) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            return result.get('result')
-    except HTTPError as e:
-        print(f"KV GET error for {key}: {e}")
-        return None
+def get_redis_client():
+    """Create Redis client from REDIS_URL."""
+    if not REDIS_URL:
+        raise ValueError("REDIS_URL not configured")
+    return redis.from_url(REDIS_URL, decode_responses=True)
 
 
 def load_session(loader: instaloader.Instaloader) -> bool:
@@ -104,7 +69,7 @@ def fetch_profile(loader: instaloader.Instaloader) -> dict:
         "userid": str(profile.userid),
         "fullName": profile.full_name or "",
         "biography": profile.biography or "",
-        "bio": profile.biography or "",  # Legacy
+        "bio": profile.biography or "",
         "externalUrl": profile.external_url,
         "profilePicUrl": profile.profile_pic_url,
         "isPrivate": profile.is_private,
@@ -224,7 +189,7 @@ def fetch_posts(loader: instaloader.Instaloader, fetch_likers: bool = True, fetc
                     replies = []
                     if hasattr(comment, 'answers'):
                         for k, reply in enumerate(comment.answers):
-                            if k >= 5:  # Limit replies
+                            if k >= 5:
                                 break
                             replies.append({
                                 "id": str(reply.id),
@@ -312,12 +277,19 @@ def fetch_following(loader: instaloader.Instaloader) -> list:
     return following
 
 
+def store_data(r, key: str, data, ttl: int = CACHE_TTL):
+    """Store data in Redis with TTL."""
+    r.setex(key, ttl, json.dumps(data))
+
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle refresh request."""
         try:
+            r = get_redis_client()
+
             # Check if already running
-            status = kv_get("ig:refresh_status")
+            status = r.get("ig:refresh_status")
             if status == "running":
                 self.send_response(409)
                 self.send_header("Content-type", "application/json")
@@ -326,7 +298,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             # Set status to running
-            kv_set("ig:refresh_status", "running", ttl=300)
+            r.setex("ig:refresh_status", 300, "running")
 
             # Create Instaloader instance
             loader = instaloader.Instaloader(
@@ -341,7 +313,7 @@ class handler(BaseHTTPRequestHandler):
 
             # Load session
             if not load_session(loader):
-                kv_set("ig:refresh_status", "error:session_failed", ttl=300)
+                r.setex("ig:refresh_status", 300, "error:session_failed")
                 self.send_response(500)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -351,26 +323,26 @@ class handler(BaseHTTPRequestHandler):
             # Fetch and store profile
             print("Fetching profile...")
             profile = fetch_profile(loader)
-            kv_set(f"ig:profile:{IG_USERNAME}", profile)
+            store_data(r, f"ig:profile:{IG_USERNAME}", profile)
 
             # Fetch and store posts
             print("Fetching posts...")
             posts = fetch_posts(loader, fetch_likers=True, fetch_comments=True)
-            kv_set(f"ig:posts:{IG_USERNAME}", posts)
+            store_data(r, f"ig:posts:{IG_USERNAME}", posts)
 
-            # Fetch and store followers (optional, slower)
+            # Fetch and store followers
             print("Fetching followers...")
             followers = fetch_followers(loader)
-            kv_set(f"ig:followers:{IG_USERNAME}", followers)
+            store_data(r, f"ig:followers:{IG_USERNAME}", followers)
 
             # Fetch and store following
             print("Fetching following...")
             following = fetch_following(loader)
-            kv_set(f"ig:following:{IG_USERNAME}", following)
+            store_data(r, f"ig:following:{IG_USERNAME}", following)
 
             # Update last refresh time and status
-            kv_set(f"ig:last_refresh:{IG_USERNAME}", datetime.utcnow().isoformat() + "Z", ttl=86400)
-            kv_set("ig:refresh_status", "complete", ttl=300)
+            r.set(f"ig:last_refresh:{IG_USERNAME}", datetime.utcnow().isoformat() + "Z")
+            r.setex("ig:refresh_status", 300, "complete")
 
             # Return success
             self.send_response(200)
@@ -388,7 +360,8 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             print(f"Error during refresh: {e}")
             try:
-                kv_set("ig:refresh_status", f"error:{str(e)[:50]}", ttl=300)
+                r = get_redis_client()
+                r.setex("ig:refresh_status", 300, f"error:{str(e)[:50]}")
             except:
                 pass
 
@@ -400,8 +373,9 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Return refresh status."""
         try:
-            status = kv_get("ig:refresh_status") or "idle"
-            last_refresh = kv_get(f"ig:last_refresh:{IG_USERNAME}")
+            r = get_redis_client()
+            status = r.get("ig:refresh_status") or "idle"
+            last_refresh = r.get(f"ig:last_refresh:{IG_USERNAME}")
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
