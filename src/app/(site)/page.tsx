@@ -1,5 +1,6 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { PasswordForm } from "@/components/password-form";
 
 export default function HomePage() {
   return (
@@ -12,40 +13,40 @@ export default function HomePage() {
           </h1>
           <p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl">
             A personal Instagram analytics dashboard. View your profile stats,
-            browse posts, and explore insights—all from locally exported data.
+            browse posts, and explore insights.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Button asChild size="lg">
-            <Link href="/dashboard">
-              Go to Dashboard
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link href="/privacy">
-              How it Works
-            </Link>
-          </Button>
+        <Suspense fallback={<div className="h-64 w-full max-w-md animate-pulse bg-muted rounded-lg" />}>
+          <PasswordForm />
+        </Suspense>
+
+        <div className="mt-8 text-center">
+          <Link
+            href="/privacy"
+            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          >
+            How it works & Privacy Policy
+          </Link>
         </div>
 
-        <div className="mt-12 grid gap-8 sm:grid-cols-3 text-left max-w-3xl">
+        <div className="mt-8 grid gap-6 sm:grid-cols-3 text-left max-w-3xl">
           <div className="space-y-2">
-            <h3 className="font-semibold">No OAuth Required</h3>
+            <h3 className="font-semibold">Live Data Refresh</h3>
             <p className="text-sm text-muted-foreground">
-              Your data stays local. No login flows, no tokens, no third-party access.
+              Fetch fresh Instagram data on-demand with smart caching.
             </p>
           </div>
           <div className="space-y-2">
-            <h3 className="font-semibold">Privacy First</h3>
+            <h3 className="font-semibold">Deep Analytics</h3>
             <p className="text-sm text-muted-foreground">
-              Data is committed to the repo as JSON. No databases, no tracking.
+              See who likes your posts, full comment threads, and engagement trends.
             </p>
           </div>
           <div className="space-y-2">
-            <h3 className="font-semibold">Personal Use</h3>
+            <h3 className="font-semibold">Private & Secure</h3>
             <p className="text-sm text-muted-foreground">
-              Built for viewing your own Instagram data. Refresh locally, deploy anywhere.
+              Password protected. Your data stays on your server.
             </p>
           </div>
         </div>

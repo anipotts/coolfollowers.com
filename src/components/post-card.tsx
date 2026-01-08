@@ -50,30 +50,38 @@ function MessageIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export function PostCard({ post, onClick }: PostCardProps) {
-  const mediaTypeLabels = {
+  const mediaTypeLabels: Record<string, string> = {
     image: "Photo",
     video: "Video",
     carousel: "Carousel",
+    GraphImage: "Photo",
+    GraphVideo: "Video",
+    GraphSidecar: "Carousel",
   };
+
+  const mediaType = post.typename || post.mediaType || "image";
+  const mediaUrl = post.mediaUrl || post.mediaUrls?.[0] || "";
 
   return (
     <Card
       className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
-      <div className="relative aspect-square">
-        <Image
-          src={post.mediaUrls[0]}
-          alt={post.caption || "Instagram post"}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
+      <div className="relative aspect-square bg-muted">
+        {mediaUrl && (
+          <Image
+            src={mediaUrl}
+            alt={post.caption || "Instagram post"}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        )}
         <Badge
           variant="secondary"
           className="absolute top-2 right-2 bg-background/80 backdrop-blur"
         >
-          {mediaTypeLabels[post.mediaType]}
+          {mediaTypeLabels[mediaType] || "Post"}
         </Badge>
       </div>
       <CardContent className="p-4">

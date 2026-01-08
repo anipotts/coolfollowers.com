@@ -24,6 +24,8 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/posts", label: "Posts" },
+  { href: "/dashboard/followers", label: "Followers" },
+  { href: "/dashboard/following", label: "Following" },
   { href: "/dashboard/insights", label: "Insights" },
   { href: "/privacy", label: "Privacy" },
 ];

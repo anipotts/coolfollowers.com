@@ -3,6 +3,7 @@ import { loadProfileSafe, loadPostsSafe, calculateStats } from "@/lib/ig/load";
 import { ProfileCard } from "@/components/profile-card";
 import { StatsCard } from "@/components/stats-card";
 import { PostCard } from "@/components/post-card";
+import { RefreshButton } from "@/components/refresh-button";
 import { Button } from "@/components/ui/button";
 
 export const metadata = {
@@ -18,12 +19,12 @@ export default async function DashboardPage() {
   if (!profile) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center py-16">
-          <h1 className="text-2xl font-bold mb-4">No Profile Data</h1>
-          <p className="text-muted-foreground">
-            Profile data not found. Make sure to run the refresh script locally
-            and commit the updated JSON files.
+        <div className="text-center py-16 space-y-6">
+          <h1 className="text-2xl font-bold">No Profile Data</h1>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            No cached data found. Click the button below to fetch your Instagram data.
           </p>
+          <RefreshButton className="items-center" />
         </div>
       </div>
     );
@@ -36,7 +37,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
+      <div className="flex justify-between items-start mb-8">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <RefreshButton />
+      </div>
 
       {/* Profile Card */}
       <div className="mb-8">
