@@ -1,0 +1,120 @@
+[
+  {
+    "id": "post_001",
+    "shortcode": "CxYz123Ab",
+    "caption": "Just shipped a new feature! Building in public is the best way to stay accountable.",
+    "mediaType": "image",
+    "mediaUrls": ["https://picsum.photos/seed/post001/800/800"],
+    "permalink": "https://www.instagram.com/p/CxYz123Ab/",
+    "timestamp": "2026-01-05T14:30:00Z",
+    "likeCount": 245,
+    "commentCount": 18,
+    "likers": [
+      { "username": "techfan42", "fullName": "Alex Tech", "profilePicUrl": "https://picsum.photos/seed/techfan42/100/100" },
+      { "username": "devlife_daily", "fullName": "Dev Life", "profilePicUrl": "https://picsum.photos/seed/devlife/100/100" },
+      { "username": "startup_grind", "fullName": null, "profilePicUrl": null }
+    ]
+  },
+  {
+    "id": "post_002",
+    "shortcode": "CwAb456Cd",
+    "caption": "Morning coffee and code. The perfect combo.",
+    "mediaType": "image",
+    "mediaUrls": ["https://picsum.photos/seed/post002/800/800"],
+    "permalink": "https://www.instagram.com/p/CwAb456Cd/",
+    "timestamp": "2026-01-02T09:15:00Z",
+    "likeCount": 189,
+    "commentCount": 12,
+    "likers": [
+      { "username": "coffeecoder", "fullName": "Java Joe", "profilePicUrl": "https://picsum.photos/seed/coffeecoder/100/100" }
+    ]
+  },
+  {
+    "id": "post_003",
+    "shortcode": "CvEf789Gh",
+    "caption": null,
+    "mediaType": "carousel",
+    "mediaUrls": [
+      "https://picsum.photos/seed/post003a/800/800",
+      "https://picsum.photos/seed/post003b/800/800",
+      "https://picsum.photos/seed/post003c/800/800"
+    ],
+    "permalink": "https://www.instagram.com/p/CvEf789Gh/",
+    "timestamp": "2025-12-28T18:45:00Z",
+    "likeCount": 312,
+    "commentCount": 25,
+    "likers": []
+  },
+  {
+    "id": "post_004",
+    "shortcode": "CuIj012Kl",
+    "caption": "Behind the scenes of the latest project. Lots of late nights but worth it!",
+    "mediaType": "video",
+    "mediaUrls": ["https://picsum.photos/seed/post004/800/800"],
+    "permalink": "https://www.instagram.com/p/CuIj012Kl/",
+    "timestamp": "2025-12-20T21:00:00Z",
+    "likeCount": 456,
+    "commentCount": 34,
+    "likers": [
+      { "username": "nightowl_dev", "fullName": "Night Owl", "profilePicUrl": "https://picsum.photos/seed/nightowl/100/100" },
+      { "username": "coding_ninja", "fullName": "Code Ninja", "profilePicUrl": "https://picsum.photos/seed/ninja/100/100" },
+      { "username": "techie_sarah", "fullName": "Sarah T.", "profilePicUrl": "https://picsum.photos/seed/sarah/100/100" },
+      { "username": "buildinpublic", "fullName": null, "profilePicUrl": null }
+    ]
+  },
+  {
+    "id": "post_005",
+    "shortcode": "CtMn345Op",
+    "caption": "Grateful for this community. You all inspire me every day.",
+    "mediaType": "image",
+    "mediaUrls": ["https://picsum.photos/seed/post005/800/800"],
+    "permalink": "https://www.instagram.com/p/CtMn345Op/",
+    "timestamp": "2025-12-15T12:30:00Z",
+    "likeCount": 523,
+    "commentCount": 41
+  },
+  {
+    "id": "post_006",
+    "shortcode": "CsQr678St",
+    "caption": "New desk setup. Clean and minimal for maximum focus.",
+    "mediaType": "carousel",
+    "mediaUrls": [
+      "https://picsum.photos/seed/post006a/800/800",
+      "https://picsum.photos/seed/post006b/800/800"
+    ],
+    "permalink": "https://www.instagram.com/p/CsQr678St/",
+    "timestamp": "2025-12-08T16:00:00Z",
+    "likeCount": 287,
+    "commentCount": 19,
+    "likers": [
+      { "username": "minimalist_mike", "fullName": "Mike M.", "profilePicUrl": "https://picsum.photos/seed/mike/100/100" }
+    ]
+  },
+  {
+    "id": "post_007",
+    "shortcode": "CrUv901Wx",
+    "caption": "Throwback to last month's hackathon. We won!",
+    "mediaType": "image",
+    "mediaUrls": ["https://picsum.photos/seed/post007/800/800"],
+    "permalink": "https://www.instagram.com/p/CrUv901Wx/",
+    "timestamp": "2025-11-25T10:00:00Z",
+    "likeCount": 678,
+    "commentCount": 52,
+    "likers": [
+      { "username": "hackathon_hero", "fullName": "Hack Hero", "profilePicUrl": "https://picsum.photos/seed/hackhero/100/100" },
+      { "username": "code_champion", "fullName": "CC", "profilePicUrl": "https://picsum.photos/seed/cc/100/100" }
+    ]
+  },
+  {
+    "id": "post_008",
+    "shortcode": "CqYz234Ab",
+    "caption": "Learning never stops. Currently diving deep into AI/ML.",
+    "mediaType": "image",
+    "mediaUrls": ["https://picsum.photos/seed/post008/800/800"],
+    "permalink": "https://www.instagram.com/p/CqYz234Ab/",
+    "timestamp": "2025-11-10T14:20:00Z",
+    "likeCount": 198,
+    "commentCount": 15,
+    "likers": []
+  }
+]
