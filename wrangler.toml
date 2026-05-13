@@ -1,0 +1,30 @@
+name = "coolfollowers-com"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "0f856093bdcd34a7da1bde5ee4385163"
+main = ".open-next/worker.js"
+workers_dev = true
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[observability]
+enabled = true
+
+# KV namespace for the IG cache (replaces Redis on Workers).
+# Create the namespace before first deploy:
+#   wrangler kv:namespace create coolfollowers-cache
+# Then paste the id below.
+#
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<set after wrangler kv:namespace create>"
+
+# Custom-domain bind. Uncomment after the coolfollowers.com zone is added
+# in the Cloudflare dashboard.
+#
+# [[routes]]
+# pattern = "coolfollowers.com"
+# custom_domain = true
+# zone_id = "<set after zone is created>"
