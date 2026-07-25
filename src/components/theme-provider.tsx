@@ -28,10 +28,14 @@ export function ThemeProvider({
   const [theme, setTheme] = React.useState<Theme>(defaultTheme);
 
   React.useEffect(() => {
-    const stored = localStorage.getItem(storageKey) as Theme | null;
-    if (stored) {
-      setTheme(stored);
-    }
+    const frame = window.requestAnimationFrame(() => {
+      const stored = localStorage.getItem(storageKey) as Theme | null;
+      if (stored) {
+        setTheme(stored);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [storageKey]);
 
   React.useEffect(() => {

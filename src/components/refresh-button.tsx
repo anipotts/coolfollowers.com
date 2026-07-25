@@ -42,7 +42,11 @@ export function RefreshButton({ className }: { className?: string }) {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    const initialFetch = window.setTimeout(() => {
+      void fetchStatus();
+    }, 0);
+
+    return () => window.clearTimeout(initialFetch);
   }, [fetchStatus]);
 
   useEffect(() => {
