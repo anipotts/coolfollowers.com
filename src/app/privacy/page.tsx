@@ -1,131 +1,64 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Metadata } from "next";
+import Link from "next/link";
 
-export const metadata = {
-  title: "Privacy",
+export const metadata: Metadata = {
+  title: "privacy | coolfollowers.com",
+  description: "How coolfollowers.com keeps Instagram data on your device.",
 };
 
 export default function PrivacyPage() {
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <h1 className="text-3xl font-bold mb-8">Privacy Policy</h1>
+    <main className="min-h-screen bg-background px-6 py-16 sm:px-10 sm:py-24">
+      <article className="mx-auto flex max-w-2xl flex-col gap-12 rounded-[2rem] bg-white p-8 shadow-[0_24px_80px_rgba(35,79,130,0.12)] sm:p-12">
+        <div className="flex flex-col gap-4">
+          <Link
+            href="/"
+            className="w-fit text-lg font-extrabold tracking-[-0.04em] text-foreground outline-none focus-visible:ring-4 focus-visible:ring-ring/25"
+          >
+            coolfollowers.com
+          </Link>
+          <h1 className="text-4xl font-extrabold tracking-[-0.05em] sm:text-5xl">
+            privacy
+          </h1>
+        </div>
 
-      <div className="prose prose-gray dark:prose-invert max-w-none space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>No OAuth or Login Required</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              This website does not use Instagram OAuth or any authentication
-              flow. There is no login required. Your Instagram credentials are
-              never requested, collected, or stored by this application.
-            </p>
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-bold">your data stays in Chrome</h2>
+          <p className="leading-7 text-muted-foreground">
+            The extension reads usernames from the followers and following
+            lists that you open on your own Instagram account. It does not ask
+            for your Instagram password or read your cookies.
+          </p>
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Collection</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground space-y-4">
-            <p>
-              <strong>What we collect:</strong> Nothing. This is a static
-              website that renders data from local JSON files committed to the
-              repository.
-            </p>
-            <p>
-              <strong>How data is obtained:</strong> The site owner manually
-              exports their Instagram data using local tools (like Instaloader)
-              on their own machine. This data is then committed to the
-              repository as JSON files.
-            </p>
-            <p>
-              <strong>What is stored:</strong> Only publicly available
-              Instagram data that the site owner chooses to include in the
-              repository (profile info, posts, like counts). No sensitive
-              information, no credentials, no private messages.
-            </p>
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-bold">nothing is uploaded</h2>
+          <p className="leading-7 text-muted-foreground">
+            Usernames, scan progress, and results remain in temporary Chrome
+            session storage. They are not sent to coolfollowers.com, an
+            analytics provider, or any other server. Clearing results or ending
+            the browser session removes them.
+          </p>
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>How It Works</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground space-y-4">
-            <ol className="list-decimal list-inside space-y-2">
-              <li>
-                The site owner runs a local Python script to export their
-                Instagram data
-              </li>
-              <li>
-                The script outputs JSON files containing profile and post
-                information
-              </li>
-              <li>
-                These JSON files are committed to the repository
-              </li>
-              <li>
-                The website reads these static files to display the dashboard
-              </li>
-              <li>
-                No live connections to Instagram are made from the deployed site
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-bold">limited access</h2>
+          <p className="leading-7 text-muted-foreground">
+            The extension is limited to coolfollowers.com and instagram.com.
+            It does not follow, unfollow, message, like, or publish anything.
+          </p>
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Third-Party Services</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground space-y-4">
-            <p>
-              <strong>Hosting:</strong> This site is hosted on Vercel. Vercel
-              may collect standard web server logs (IP addresses, user agents)
-              as part of their service. Please refer to{" "}
-              <a
-                href="https://vercel.com/legal/privacy-policy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Vercel&apos;s Privacy Policy
-              </a>{" "}
-              for details.
-            </p>
-            <p>
-              <strong>Analytics:</strong> No analytics scripts are included on
-              this site. We do not track visitors.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Use Only</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              This website is built for personal use to view my own Instagram
-              analytics. It is not intended for commercial purposes or to
-              process data for other users.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Contact</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              If you have any questions about this privacy policy, please open
-              an issue on the repository or contact the site owner directly.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-bold">website hosting</h2>
+          <p className="leading-7 text-muted-foreground">
+            The website is statically hosted by Vercel. Vercel may process
+            ordinary request information such as IP addresses and browser user
+            agents under its own privacy policy. The site includes no analytics
+            scripts.
+          </p>
+        </section>
+      </article>
+    </main>
   );
 }

@@ -1,44 +1,36 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Header } from "@/components/header";
-import { Footer } from "@/components/footer";
+import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-ibm-plex-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: "coolfollowers.com",
-    template: "%s | coolfollowers.com",
-  },
-  description: "Personal Instagram analytics dashboard",
-  keywords: ["instagram", "analytics", "dashboard", "personal"],
+  metadataBase: new URL("https://coolfollowers.com"),
+  title: "coolfollowers.com",
+  description: "See which followers are actually cool.",
   authors: [{ name: "Ani Potts" }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://coolfollowers.com",
+    url: "/",
     title: "coolfollowers.com",
-    description: "Personal Instagram analytics dashboard",
+    description: "See which followers are actually cool.",
     siteName: "coolfollowers.com",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "coolfollowers.com",
-    description: "Personal Instagram analytics dashboard",
-  },
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
 };
 
@@ -48,15 +40,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+        className={`${manrope.variable} ${ibmPlexMono.variable} min-h-screen antialiased`}
       >
-        <ThemeProvider defaultTheme="system" storageKey="coolfollowers-theme">
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </ThemeProvider>
+        {children}
       </body>
     </html>
   );
