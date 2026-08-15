@@ -16,13 +16,15 @@ function createFocusCoach(copy: CoachCopy, control: HTMLElement) {
   root.innerHTML = `
     <style>
       :host { all: initial; }
-      .focus { position: fixed; border: 3px solid #68a9ff; border-radius: 18px; box-shadow: 0 0 0 5px rgba(104,169,255,.17), 0 12px 34px rgba(23,105,236,.2); transition: transform 260ms cubic-bezier(.22,1,.36,1), width 260ms cubic-bezier(.22,1,.36,1), height 260ms cubic-bezier(.22,1,.36,1); animation: breathe 1800ms ease-in-out infinite; }
-      .caption { position: fixed; width: min(292px, calc(100vw - 32px)); border-radius: 18px; padding: 14px 16px; background: #eef7ff; color: #07183d; box-shadow: 0 18px 48px rgba(7,24,61,.24); font: 700 14px/1.42 Manrope, ui-sans-serif, system-ui, sans-serif; transition: transform 260ms cubic-bezier(.22,1,.36,1); }
+      .focus { position: fixed; opacity: 0; border: 3px solid #68a9ff; border-radius: 12px; box-shadow: 0 0 0 5px rgba(104,169,255,.17), 0 12px 34px rgba(23,105,236,.2); transition: opacity 180ms ease-out; animation: breathe 1800ms ease-in-out infinite; }
+      .caption { position: fixed; opacity: 0; width: min(292px, calc(100vw - 32px)); border-radius: 16px; padding: 14px 16px; background: #eef7ff; color: #07183d; box-shadow: 0 18px 48px rgba(7,24,61,.24); font: 700 14px/1.42 Manrope, ui-sans-serif, system-ui, sans-serif; transition: opacity 180ms ease-out; }
+      :host(.is-visible) .focus { opacity: 1; transition: opacity 180ms ease-out, transform 260ms cubic-bezier(.22,1,.36,1), width 260ms cubic-bezier(.22,1,.36,1), height 260ms cubic-bezier(.22,1,.36,1); }
+      :host(.is-visible) .caption { opacity: 1; transition: opacity 180ms ease-out, transform 260ms cubic-bezier(.22,1,.36,1); }
       .step { margin: 0 0 5px; color: #1769ec; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
       .title { margin: 0; font-size: 15px; font-weight: 850; letter-spacing: -.02em; }
       .instruction { margin: 4px 0 0; color: #405170; font-weight: 650; }
-      @keyframes breathe { 0%,100% { border-radius: 16px 20px 17px 21px; box-shadow: 0 0 0 4px rgba(104,169,255,.13), 0 12px 34px rgba(23,105,236,.17); } 50% { border-radius: 21px 16px 22px 17px; box-shadow: 0 0 0 8px rgba(104,169,255,.2), 0 16px 42px rgba(23,105,236,.24); } }
-      @media (prefers-reduced-motion: reduce) { .focus, .caption { transition: none; } .focus { animation: none; } }
+      @keyframes breathe { 0%,100% { box-shadow: 0 0 0 4px rgba(104,169,255,.13), 0 12px 34px rgba(23,105,236,.17); } 50% { box-shadow: 0 0 0 7px rgba(104,169,255,.19), 0 16px 42px rgba(23,105,236,.22); } }
+      @media (prefers-reduced-motion: reduce) { .focus, .caption, :host(.is-visible) .focus, :host(.is-visible) .caption { transition: none; } .focus { animation: none; } }
     </style>
     <div class="focus"></div>
     <div class="caption" role="status" aria-live="polite">
@@ -36,23 +38,32 @@ function createFocusCoach(copy: CoachCopy, control: HTMLElement) {
   root.querySelector<HTMLElement>(".instruction")!.textContent = copy.instruction;
   document.documentElement.append(host);
 
-  let frame = 0;
+  let positionFrame = 0;
+  let revealFrame = 0;
+  let hasPositioned = false;
+  const applyPosition = () => {
+    if (!control.isConnected) return;
+    const rect = control.getBoundingClientRect();
+    const pad = 5;
+    focus.style.width = Math.max(18, rect.width + pad * 2) + "px";
+    focus.style.height = Math.max(18, rect.height + pad * 2) + "px";
+    focus.style.transform = `translate(${rect.left - pad}px, ${rect.top - pad}px)`;
+    const captionWidth = Math.min(292, window.innerWidth - 32);
+    const left = Math.min(window.innerWidth - captionWidth - 16, Math.max(16, rect.left + rect.width / 2 - captionWidth / 2));
+    const estimatedHeight = 112;
+    const below = rect.bottom + 16;
+    const top = below + estimatedHeight < window.innerHeight ? below : Math.max(16, rect.top - estimatedHeight - 16);
+    caption.style.transform = `translate(${left}px, ${top}px)`;
+  };
   const position = () => {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => {
-      if (!control.isConnected) return;
-      const rect = control.getBoundingClientRect();
-      const pad = 7;
-      focus.style.width = Math.max(18, rect.width + pad * 2) + "px";
-      focus.style.height = Math.max(18, rect.height + pad * 2) + "px";
-      focus.style.transform = `translate(${rect.left - pad}px, ${rect.top - pad}px)`;
-      const captionWidth = Math.min(292, window.innerWidth - 32);
-      const left = Math.min(window.innerWidth - captionWidth - 16, Math.max(16, rect.left + rect.width / 2 - captionWidth / 2));
-      const estimatedHeight = 112;
-      const below = rect.bottom + 18;
-      const top = below + estimatedHeight < window.innerHeight ? below : Math.max(16, rect.top - estimatedHeight - 18);
-      caption.style.transform = `translate(${left}px, ${top}px)`;
-    });
+    if (!hasPositioned) {
+      applyPosition();
+      hasPositioned = true;
+      revealFrame = requestAnimationFrame(() => host.classList.add("is-visible"));
+      return;
+    }
+    cancelAnimationFrame(positionFrame);
+    positionFrame = requestAnimationFrame(applyPosition);
   };
   const observer = new ResizeObserver(position);
   const mutations = new MutationObserver(position);
@@ -63,7 +74,8 @@ function createFocusCoach(copy: CoachCopy, control: HTMLElement) {
   position();
 
   return () => {
-    cancelAnimationFrame(frame);
+    cancelAnimationFrame(positionFrame);
+    cancelAnimationFrame(revealFrame);
     observer.disconnect();
     mutations.disconnect();
     window.removeEventListener("resize", position);
