@@ -12,6 +12,7 @@ const options = {
     background: resolve(extensionRoot, "src/background.ts"),
     bridge: resolve(extensionRoot, "src/bridge.ts"),
     instagram: resolve(extensionRoot, "src/instagram.ts"),
+    sidepanel: resolve(extensionRoot, "src/sidepanel.ts"),
   },
   bundle: true,
   entryNames: "[name]",
@@ -38,6 +39,8 @@ async function copyStaticFiles() {
     resolve(outdir, "manifest.json"),
     JSON.stringify(manifest, null, 2) + "\n",
   );
+  await cp(resolve(extensionRoot, "sidepanel.html"), resolve(outdir, "sidepanel.html"));
+  await cp(resolve(extensionRoot, "sidepanel.css"), resolve(outdir, "sidepanel.css"));
   for (const size of [16, 48, 128]) {
     await cp(
       resolve(extensionRoot, "icons", "icon-" + size + ".png"),

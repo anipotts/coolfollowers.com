@@ -32,6 +32,7 @@ export interface CountInfo {
 
 export interface DialogScanOptions {
   expected?: CountInfo;
+  initialRecords?: FollowerRecord[];
   signal: AbortSignal;
   onProgress: (records: FollowerRecord[]) => void;
   stableRounds?: number;
@@ -84,6 +85,36 @@ export function extractRecords(root: ParentNode): FollowerRecord[] {
     if (record) records.push(record);
   }
   return dedupeRecords(records);
+}
+
+export function findRelationControl(kind: "followers" | "following") {
+  const main = document.querySelector("main");
+  if (!main) return null;
+  return (
+    [...main.querySelectorAll<HTMLElement>("a, button")].find((element) => {
+      const text = element.textContent?.trim().toLowerCase() ?? "";
+      return new RegExp("(?:^|\\s)" + kind + "(?:$|\\s)").test(text);
+    }) ?? null
+  );
+}
+
+export function countFromControl(control: HTMLElement) {
+  const labels = [
+    control.getAttribute("title"),
+    control.getAttribute("aria-label"),
+    ...[...control.querySelectorAll<HTMLElement>("[title], [aria-label]")].flatMap(
+      (element) => [
+        element.getAttribute("title"),
+        element.getAttribute("aria-label"),
+      ],
+    ),
+    control.textContent,
+  ].filter((value): value is string => Boolean(value));
+  for (const label of labels) {
+    const count = parseCountLabel(label);
+    if (count) return count;
+  }
+  return undefined;
 }
 
 export function findScrollable(root: HTMLElement): HTMLElement | null {
@@ -156,19 +187,45 @@ function waitForMutation(root: Node, waitMs: number, signal: AbortSignal) {
   });
 }
 
+function nextFrameOrTimeout(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", abort);
+      resolve();
+    };
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(signal.reason);
+    };
+    const timeout = window.setTimeout(finish, 120);
+    requestAnimationFrame(finish);
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
 export async function scanDialog(
   dialog: HTMLElement,
   options: DialogScanOptions,
 ): Promise<FollowerRecord[]> {
-  const records = new Map<string, FollowerRecord>();
-  const roundsToStop = options.stableRounds ?? 5;
-  const waitMs = options.waitMs ?? 650;
+  const records = new Map(
+    (options.initialRecords ?? []).map((record) => [record.username, record]),
+  );
+  const roundsToStop = options.stableRounds ?? 8;
+  const waitMs = options.waitMs ?? 520;
   let stableRounds = 0;
   let lastReportedSize = -1;
 
   while (!options.signal.aborted) {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
     const error = detectInstagramError(
       document.body.innerText ?? document.body.textContent ?? "",
     );
@@ -183,15 +240,24 @@ export async function scanDialog(
     }
 
     if (options.expected?.exact && records.size >= options.expected.value) break;
-    stableRounds = records.size === before ? stableRounds + 1 : 0;
-    if (stableRounds >= roundsToStop) break;
-
     const scroller = findScrollable(dialog);
+    let advanced = false;
     if (scroller) {
-      scroller.scrollTop = scroller.scrollHeight;
+      const beforeTop = scroller.scrollTop;
+      const nextTop = Math.min(
+        scroller.scrollHeight,
+        scroller.scrollTop + Math.max(scroller.clientHeight * 0.86, 420),
+      );
+      scroller.scrollTop = nextTop;
+      advanced = nextTop > beforeTop;
       scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
     }
-    await waitForMutation(dialog, waitMs, options.signal);
+    stableRounds = records.size === before && !advanced ? stableRounds + 1 : 0;
+    if (stableRounds >= roundsToStop) break;
+    await Promise.all([
+      waitForMutation(dialog, waitMs, options.signal),
+      nextFrameOrTimeout(options.signal),
+    ]);
   }
 
   if (options.signal.aborted) throw options.signal.reason;

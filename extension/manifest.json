@@ -3,7 +3,7 @@
   "name": "coolfollowers",
   "description": "See which Instagram followers are actually cool. Your data stays in Chrome.",
   "version": "1.0.0",
-  "permissions": ["storage"],
+  "permissions": ["storage", "sidePanel"],
   "host_permissions": [
     "https://www.instagram.com/*",
     "https://coolfollowers.com/*"
@@ -28,6 +28,9 @@
   ],
   "action": {
     "default_title": "coolfollowers"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "icons": {
     "16": "icons/icon-16.png",

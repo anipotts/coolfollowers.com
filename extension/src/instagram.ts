@@ -1,25 +1,83 @@
-import {
-  parseCountLabel,
-  scanDialog,
-  ScannerFailure,
-  waitForValue,
-} from "./scanner";
+import { countFromControl, findRelationControl, scanDialog, ScannerFailure, waitForValue } from "./scanner";
 import type { InternalMessage } from "./internal";
-import type {
-  FollowerRecord,
-  ScanError,
-} from "../../src/lib/extension-protocol";
+import type { FollowerRecord, RelationKind, ScanError } from "../../src/lib/extension-protocol";
 
 let activeController: AbortController | null = null;
+let activeScanId: string | null = null;
+
+interface CoachCopy { step: string; title: string; instruction: string; }
+
+function createFocusCoach(copy: CoachCopy, control: HTMLElement) {
+  document.querySelector('[data-coolfollowers-coach="true"]')?.remove();
+  const host = document.createElement("div");
+  host.dataset.coolfollowersCoach = "true";
+  host.style.cssText = "position:fixed;inset:0;z-index:2147483647;pointer-events:none";
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `
+    <style>
+      :host { all: initial; }
+      .focus { position: fixed; border: 3px solid #68a9ff; border-radius: 18px; box-shadow: 0 0 0 5px rgba(104,169,255,.17), 0 12px 34px rgba(23,105,236,.2); transition: transform 260ms cubic-bezier(.22,1,.36,1), width 260ms cubic-bezier(.22,1,.36,1), height 260ms cubic-bezier(.22,1,.36,1); animation: breathe 1800ms ease-in-out infinite; }
+      .caption { position: fixed; width: min(292px, calc(100vw - 32px)); border-radius: 18px; padding: 14px 16px; background: #eef7ff; color: #07183d; box-shadow: 0 18px 48px rgba(7,24,61,.24); font: 700 14px/1.42 Manrope, ui-sans-serif, system-ui, sans-serif; transition: transform 260ms cubic-bezier(.22,1,.36,1); }
+      .step { margin: 0 0 5px; color: #1769ec; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+      .title { margin: 0; font-size: 15px; font-weight: 850; letter-spacing: -.02em; }
+      .instruction { margin: 4px 0 0; color: #405170; font-weight: 650; }
+      @keyframes breathe { 0%,100% { border-radius: 16px 20px 17px 21px; box-shadow: 0 0 0 4px rgba(104,169,255,.13), 0 12px 34px rgba(23,105,236,.17); } 50% { border-radius: 21px 16px 22px 17px; box-shadow: 0 0 0 8px rgba(104,169,255,.2), 0 16px 42px rgba(23,105,236,.24); } }
+      @media (prefers-reduced-motion: reduce) { .focus, .caption { transition: none; } .focus { animation: none; } }
+    </style>
+    <div class="focus"></div>
+    <div class="caption" role="status" aria-live="polite">
+      <p class="step"></p><p class="title"></p><p class="instruction"></p>
+    </div>
+  `;
+  const focus = root.querySelector<HTMLElement>(".focus")!;
+  const caption = root.querySelector<HTMLElement>(".caption")!;
+  root.querySelector<HTMLElement>(".step")!.textContent = copy.step;
+  root.querySelector<HTMLElement>(".title")!.textContent = copy.title;
+  root.querySelector<HTMLElement>(".instruction")!.textContent = copy.instruction;
+  document.documentElement.append(host);
+
+  let frame = 0;
+  const position = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      if (!control.isConnected) return;
+      const rect = control.getBoundingClientRect();
+      const pad = 7;
+      focus.style.width = Math.max(18, rect.width + pad * 2) + "px";
+      focus.style.height = Math.max(18, rect.height + pad * 2) + "px";
+      focus.style.transform = `translate(${rect.left - pad}px, ${rect.top - pad}px)`;
+      const captionWidth = Math.min(292, window.innerWidth - 32);
+      const left = Math.min(window.innerWidth - captionWidth - 16, Math.max(16, rect.left + rect.width / 2 - captionWidth / 2));
+      const estimatedHeight = 112;
+      const below = rect.bottom + 18;
+      const top = below + estimatedHeight < window.innerHeight ? below : Math.max(16, rect.top - estimatedHeight - 18);
+      caption.style.transform = `translate(${left}px, ${top}px)`;
+    });
+  };
+  const observer = new ResizeObserver(position);
+  const mutations = new MutationObserver(position);
+  observer.observe(control);
+  mutations.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+  window.addEventListener("resize", position, { passive: true });
+  window.addEventListener("scroll", position, { passive: true, capture: true });
+  position();
+
+  return () => {
+    cancelAnimationFrame(frame);
+    observer.disconnect();
+    mutations.disconnect();
+    window.removeEventListener("resize", position);
+    window.removeEventListener("scroll", position, true);
+    host.remove();
+  };
+}
 
 function send(message: InternalMessage) {
   return chrome.runtime.sendMessage(message).catch(() => undefined);
 }
 
 function currentProfilePath() {
-  const followersLink = document.querySelector<HTMLAnchorElement>(
-    'a[href*="/followers/"]',
-  );
+  const followersLink = document.querySelector<HTMLAnchorElement>('a[href*="/followers/"]');
   const href = followersLink?.getAttribute("href");
   if (!href) return null;
   const parts = href.split("/").filter(Boolean);
@@ -27,172 +85,129 @@ function currentProfilePath() {
 }
 
 function findProfilePath() {
-  const current = currentProfilePath();
-  if (current) return current;
-
-  const profileImage = document.querySelector<HTMLImageElement>(
-    'nav img[alt*="profile picture" i], a img[alt*="profile picture" i]',
-  );
-  const profileLink = profileImage?.closest<HTMLAnchorElement>('a[href^="/"]');
-  const href = profileLink?.getAttribute("href");
-  if (!href) return null;
-  const parts = href.split("/").filter(Boolean);
-  return parts.length === 1 ? "/" + parts[0] + "/" : null;
-}
-
-function relationLink(kind: "followers" | "following") {
-  return document.querySelector<HTMLAnchorElement>(
-    'a[href*="/' + kind + '/"]',
-  );
-}
-
-function countFromLink(link: HTMLAnchorElement) {
-  const labels = [
-    link.getAttribute("title"),
-    link.getAttribute("aria-label"),
-    link.textContent,
-  ].filter((value): value is string => Boolean(value));
-  for (const label of labels) {
-    const count = parseCountLabel(label);
-    if (count) return count;
+  const profileImage = document.querySelector<HTMLImageElement>('nav img[alt*="profile picture" i], a img[alt*="profile picture" i]');
+  const href = profileImage?.closest<HTMLAnchorElement>('a[href^="/"]')?.getAttribute("href");
+  if (href) {
+    const parts = href.split("/").filter(Boolean);
+    if (parts.length === 1) return "/" + parts[0] + "/";
   }
-  return undefined;
+  return currentProfilePath();
 }
 
-async function openDialog(
-  kind: "followers" | "following",
-  signal: AbortSignal,
-) {
-  const link = await waitForValue(() => relationLink(kind), signal);
-  const expected = countFromLink(link);
-  link.click();
-  const dialog = await waitForValue(
-    () => document.querySelector<HTMLElement>('[role="dialog"]'),
-    signal,
-  );
-  return { dialog, expected };
+function findCloseControl() {
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+  if (!dialog) return null;
+  return [...dialog.querySelectorAll<HTMLElement>("button")].find((button) => {
+    const label = [button.getAttribute("aria-label"), button.textContent, button.querySelector("svg")?.getAttribute("aria-label")].filter(Boolean).join(" ").toLowerCase();
+    return label.includes("close");
+  }) ?? null;
 }
 
-async function closeDialog(signal: AbortSignal) {
-  document.dispatchEvent(
-    new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+async function openDialog(kind: RelationKind, scanId: string, signal: AbortSignal) {
+  const control = await waitForValue(() => findRelationControl(kind), signal);
+  const expected = countFromControl(control);
+  await send({ type: "SCANNER_AWAITING_USER", scanId, phase: kind });
+  const hideCoach = createFocusCoach(
+    kind === "followers"
+      ? { step: "step 2 of 4", title: "open followers", instruction: "click your followers count. keep the list open while we read it." }
+      : { step: "step 3 of 4", title: "open following", instruction: "click your following count. keep the list open until it verifies." },
+    control,
   );
-
-  const closeButton = document.querySelector<HTMLElement>(
-    '[role="dialog"] button[aria-label*="close" i]',
-  );
-  closeButton?.click();
-
-  const started = Date.now();
-  while (document.querySelector('[role="dialog"]')) {
-    if (signal.aborted) throw signal.reason;
-    if (Date.now() - started > 4_000) {
-      throw new ScannerFailure({
-        code: "page_changed",
-        message: "Instagram did not close the follower list. Reload Instagram and try again.",
-        retryable: true,
-      });
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  try {
+    const dialog = await waitForValue(() => document.querySelector<HTMLElement>('[role="dialog"]'), signal, 60_000);
+    return { dialog, expected };
+  } finally {
+    hideCoach();
   }
 }
 
-async function scanRelation(
-  kind: "followers" | "following",
-  signal: AbortSignal,
-): Promise<FollowerRecord[]> {
-  const { dialog, expected } = await openDialog(kind, signal);
+async function waitForDialogClose(signal: AbortSignal) {
+  const closeControl = await waitForValue(findCloseControl, signal, 4_000).catch(() => null);
+  const target = closeControl ?? document.querySelector<HTMLElement>('[role="dialog"]');
+  if (!target) return;
+  const hideCoach = createFocusCoach(
+    { step: "step 2 of 4", title: "followers verified", instruction: "close this list, then we’ll move to following." },
+    target,
+  );
+  try {
+    await waitForValue(() => document.querySelector('[role="dialog"]') ? null : true, signal, 60_000);
+  } finally {
+    hideCoach();
+  }
+}
+
+async function scanRelation(kind: RelationKind, scanId: string, signal: AbortSignal, initialRecords: FollowerRecord[] = []) {
+  const { dialog, expected } = await openDialog(kind, scanId, signal);
   if (!expected?.exact) {
-    throw new ScannerFailure({
-      code: "incomplete_scan",
-      message:
-        "Instagram did not expose an exact " +
-        kind +
-        " total, so the scan cannot be verified. Reload Instagram and try again.",
-      retryable: true,
-    });
+    throw new ScannerFailure({ code: "incomplete_scan", message: "Instagram did not expose an exact " + kind + " total. Reload Instagram and try again.", retryable: true });
   }
-  const records = await scanDialog(dialog, {
+  return scanDialog(dialog, {
     expected,
+    initialRecords,
     signal,
-    onProgress: (nextRecords) => {
-      send({
-        type: "SCANNER_PROGRESS",
-        phase: kind,
-        records: nextRecords,
-        expected: expected?.value,
-        expectedIsExact: expected?.exact,
-      });
-    },
+    onProgress: (records) => void send({ type: "SCANNER_PROGRESS", scanId, phase: kind, records, expected: expected.value, expectedIsExact: true }),
   });
-  await closeDialog(signal);
-  return records;
 }
 
 function normalizeFailure(error: unknown): ScanError {
   if (error instanceof ScannerFailure) return error.detail;
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return {
-      code: "interrupted",
-      message: "The scan was cancelled.",
-      retryable: true,
-    };
-  }
-  return {
-    code: "unknown",
-    message: "The scan stopped unexpectedly. Reload Instagram and try again.",
-    retryable: true,
-  };
+  if (error instanceof DOMException && error.name === "AbortError") return { code: "interrupted", message: "The scan was cancelled.", retryable: true };
+  return { code: "unknown", message: "The scan stopped unexpectedly. Reload Instagram and try again.", retryable: true };
 }
 
-async function startScanner() {
+async function startScanner(message: Extract<InternalMessage, { type: "SCANNER_START" }>) {
+  if (activeScanId === message.scanId && activeController) return;
   activeController?.abort(new DOMException("Replaced", "AbortError"));
   const controller = new AbortController();
   activeController = controller;
+  activeScanId = message.scanId;
 
   try {
-    if (
-      (document.body.innerText ?? document.body.textContent ?? "")
-        .toLowerCase()
-        .includes("log in") &&
-      !findProfilePath()
-    ) {
-      throw new ScannerFailure({
-        code: "login_required",
-        message: "Log into Instagram in this tab, then try again.",
-        retryable: true,
-      });
-    }
-
+    const pageText = (document.body.innerText ?? document.body.textContent ?? "").toLowerCase();
+    if (pageText.includes("log in") && !findProfilePath()) throw new ScannerFailure({ code: "login_required", message: "Log into Instagram in this tab, then try again.", retryable: true });
     const profilePath = await waitForValue(findProfilePath, controller.signal);
     if (window.location.pathname !== profilePath) {
       window.location.assign(profilePath);
       return;
     }
-
     const username = profilePath.split("/").filter(Boolean)[0];
-    const followers = await scanRelation("followers", controller.signal);
-    const following = await scanRelation("following", controller.signal);
-    await send({
-      type: "SCANNER_COMPLETE",
-      username,
-      followers,
-      following,
-    });
+    if (message.resume.username && message.resume.username !== username) throw new ScannerFailure({ code: "account_changed", message: "The Instagram account changed during the scan. Clear the scan and start again.", retryable: false });
+    const followerControl = await waitForValue(() => findRelationControl("followers"), controller.signal);
+    const followingControl = await waitForValue(() => findRelationControl("following"), controller.signal);
+    const followerExpected = countFromControl(followerControl);
+    const followingExpected = countFromControl(followingControl);
+    if (!followerExpected?.exact || !followingExpected?.exact) throw new ScannerFailure({ code: "incomplete_scan", message: "Instagram did not expose exact account totals. Reload Instagram and try again.", retryable: true });
+    await send({ type: "SCANNER_IDENTIFIED", scanId: message.scanId, username, followerExpected: followerExpected.value, followingExpected: followingExpected.value });
+
+    let followers = message.resume.followers ?? [];
+    if (followers.length !== followerExpected.value) {
+      followers = await scanRelation("followers", message.scanId, controller.signal, followers);
+      await waitForDialogClose(controller.signal);
+    } else if (document.querySelector('[role="dialog"]')) {
+      await waitForDialogClose(controller.signal);
+    }
+
+    let following = message.resume.following ?? [];
+    if (following.length !== followingExpected.value) following = await scanRelation("following", message.scanId, controller.signal, following);
+    await send({ type: "SCANNER_COMPLETE", scanId: message.scanId, username, followers, following });
   } catch (error) {
-    if (controller.signal.aborted) return;
-    await send({ type: "SCANNER_ERROR", error: normalizeFailure(error) });
+    if (!controller.signal.aborted) await send({ type: "SCANNER_ERROR", scanId: message.scanId, error: normalizeFailure(error) });
   } finally {
+    document.querySelector('[data-coolfollowers-coach="true"]')?.remove();
     if (activeController === controller) activeController = null;
+    if (activeScanId === message.scanId) activeScanId = null;
   }
 }
 
 chrome.runtime.onMessage.addListener((message: InternalMessage) => {
-  if (message.type === "SCANNER_START") void startScanner();
-  if (message.type === "SCANNER_CANCEL") {
+  if (message.type === "SCANNER_START") void startScanner(message);
+  if (message.type === "SCANNER_CANCEL" && (!message.scanId || message.scanId === activeScanId)) {
     activeController?.abort(new DOMException("Cancelled", "AbortError"));
     activeController = null;
+    activeScanId = null;
+    document.querySelector('[data-coolfollowers-coach="true"]')?.remove();
   }
 });
 
+document.documentElement.dataset.coolfollowersScanner = "ready";
 void send({ type: "SCANNER_READY" });

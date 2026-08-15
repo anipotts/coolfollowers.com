@@ -84,6 +84,26 @@ describe("dialog scanning", () => {
     });
   });
 
+  it("deduplicates restored checkpoints while a resumed dialog catches up", async () => {
+    setupAnimationFrame();
+    document.body.innerHTML = '<div role="dialog"><a href="/ani/">ani</a><a href="/mira/">mira</a></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error("test dialog missing");
+
+    const records = await scanDialog(dialog, {
+      expected: { value: 2, exact: true },
+      initialRecords: [
+        { username: "ani", profileUrl: "https://www.instagram.com/ani/" },
+      ],
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      stableRounds: 1,
+      waitMs: 1,
+    });
+
+    expect(records.map((record) => record.username)).toEqual(["ani", "mira"]);
+  });
+
   it("stops when an interrupted scan is aborted", async () => {
     setupAnimationFrame();
     document.body.innerHTML = '<div role="dialog"></div>';

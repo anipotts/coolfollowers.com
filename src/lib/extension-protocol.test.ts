@@ -73,6 +73,8 @@ describe("session recovery", () => {
 
     expect(resumed.followers).toEqual(followerBatch);
     expect(resumed.following).toEqual(followingBatch);
+    expect(resumed.followerProgress.status).toBe("verified");
+    expect(resumed.followingProgress.status).toBe("verified");
     expect(resumed.collected).toBe(2);
     expect(resumed.updatedAt).toBe(1234);
     vi.restoreAllMocks();
