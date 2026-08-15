@@ -36,6 +36,7 @@ export interface DialogScanOptions {
   signal: AbortSignal;
   onProgress: (records: FollowerRecord[]) => void;
   stableRounds?: number;
+  terminalShortfallLimit?: number;
   waitMs?: number;
 }
 
@@ -244,12 +245,13 @@ export async function scanDialog(
     let advanced = false;
     if (scroller) {
       const beforeTop = scroller.scrollTop;
+      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
       const nextTop = Math.min(
-        scroller.scrollHeight,
+        maxTop,
         scroller.scrollTop + Math.max(scroller.clientHeight * 0.86, 420),
       );
       scroller.scrollTop = nextTop;
-      advanced = nextTop > beforeTop;
+      advanced = scroller.scrollTop > beforeTop;
       scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
     }
     stableRounds = records.size === before && !advanced ? stableRounds + 1 : 0;
@@ -264,6 +266,10 @@ export async function scanDialog(
 
   const result = [...records.values()];
   if (options.expected?.exact && result.length !== options.expected.value) {
+    const shortfall = options.expected.value - result.length;
+    if (shortfall > 0 && shortfall <= (options.terminalShortfallLimit ?? 0)) {
+      return result;
+    }
     throw new ScannerFailure({
       code: "incomplete_scan",
       message:

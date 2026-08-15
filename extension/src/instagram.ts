@@ -157,6 +157,7 @@ async function scanRelation(kind: RelationKind, scanId: string, signal: AbortSig
     expected,
     initialRecords,
     signal,
+    terminalShortfallLimit: kind === "following" ? 1 : 0,
     onProgress: (records) => void send({ type: "SCANNER_PROGRESS", scanId, phase: kind, records, expected: expected.value, expectedIsExact: true }),
   });
 }

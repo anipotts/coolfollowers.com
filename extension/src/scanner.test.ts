@@ -84,6 +84,47 @@ describe("dialog scanning", () => {
     });
   });
 
+  it("recognizes the real bottom of a browser-clamped scroll container", async () => {
+    setupAnimationFrame();
+    document.body.innerHTML = '<div role="dialog"><div class="list" style="overflow-y:scroll"><a href="/ani/">ani</a></div></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const list = document.querySelector<HTMLElement>(".list");
+    if (!dialog || !list) throw new Error("test dialog missing");
+    Object.defineProperties(list, {
+      clientHeight: { value: 100 },
+      scrollHeight: { value: 1_000 },
+      scrollTop: { get: () => 900, set: () => undefined },
+    });
+
+    await expect(
+      scanDialog(dialog, {
+        expected: { value: 3, exact: true },
+        signal: new AbortController().signal,
+        onProgress: vi.fn(),
+        stableRounds: 1,
+        waitMs: 1,
+      }),
+    ).rejects.toMatchObject({ detail: { code: "incomplete_scan" } });
+  });
+
+  it("can finish when Instagram withholds one following profile", async () => {
+    setupAnimationFrame();
+    document.body.innerHTML = '<div role="dialog"><a href="/ani/">ani</a></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error("test dialog missing");
+
+    const records = await scanDialog(dialog, {
+      expected: { value: 2, exact: true },
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      stableRounds: 1,
+      terminalShortfallLimit: 1,
+      waitMs: 1,
+    });
+
+    expect(records.map((record) => record.username)).toEqual(["ani"]);
+  });
+
   it("deduplicates restored checkpoints while a resumed dialog catches up", async () => {
     setupAnimationFrame();
     document.body.innerHTML = '<div role="dialog"><a href="/ani/">ani</a><a href="/mira/">mira</a></div>';

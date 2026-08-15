@@ -28,6 +28,7 @@ export interface ScanState {
   following?: FollowerRecord[];
   cools?: FollowerRecord[];
   fools?: FollowerRecord[];
+  notice?: string;
   error?: ScanError;
   updatedAt: number;
 }

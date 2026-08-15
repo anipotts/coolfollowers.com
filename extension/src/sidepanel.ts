@@ -34,9 +34,10 @@ function previewState(): ScanState {
       phase: "complete",
       username: "anipotts.jpeg",
       followerExpected: 1134,
-      followingExpected: 754,
+      followingExpected: 755,
       followerProgress: { collected: 1134, expected: 1134, exact: true, status: "verified" },
-      followingProgress: { collected: 754, expected: 754, exact: true, status: "verified" },
+      followingProgress: { collected: 754, expected: 755, exact: true, status: "verified" },
+      notice: "Instagram lists 755 following, but only 754 profiles were available. Results include every profile Instagram showed.",
       cools: makeRecords(["lowtidevisuals", "midnightarchive", "cloudydaze", "neonchillz"]),
       fools: makeRecords(["ghostprotocol", "rarelyonline", "pixelcowboy", "brokenmirrorz", "unknownuser42"]),
     };
@@ -206,6 +207,7 @@ function resultList(records: FollowerRecord[], view: ResultView) {
 
 function resultsBody() {
   const body = element("div", "step-body results-body");
+  if (state.notice) body.append(element("p", "result-notice", state.notice));
   const switcher = element("div", "result-switcher");
   const groups: Array<{ key: ResultView; label: string; records: FollowerRecord[] }> = [
     { key: "cools", label: "cools", records: state.cools ?? [] },

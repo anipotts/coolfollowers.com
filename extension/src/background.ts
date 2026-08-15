@@ -206,6 +206,8 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
     }
     if (message.type === "SCANNER_COMPLETE") {
       const { cools, fools } = classifyRelationships(message.followers, message.following);
+      const followingExpected = state.followingExpected ?? message.following.length;
+      const followingShortfall = Math.max(0, followingExpected - message.following.length);
       sendResponse(await setState({
         ...state,
         phase: "complete",
@@ -214,11 +216,14 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
         expected: undefined,
         expectedIsExact: true,
         followerProgress: { collected: message.followers.length, expected: message.followers.length, exact: true, status: "verified" },
-        followingProgress: { collected: message.following.length, expected: message.following.length, exact: true, status: "verified" },
+        followingProgress: { collected: message.following.length, expected: followingExpected, exact: true, status: "verified" },
         followers: undefined,
         following: undefined,
         cools,
         fools,
+        notice: followingShortfall
+          ? "Instagram lists " + followingExpected.toLocaleString() + " following, but only " + message.following.length.toLocaleString() + " profiles were available. Results include every profile Instagram showed."
+          : undefined,
         updatedAt: Date.now(),
       }));
       return;

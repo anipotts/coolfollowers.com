@@ -46,6 +46,7 @@ button { cursor: pointer; }
 .actions { display: grid; gap: 9px; margin-top: 16px; }
 
 .results-body { padding-left: 16px; }
+.result-notice { margin: 0 0 12px; border-radius: 14px; padding: 11px 12px; background: #fff0e3; color: #8f3d16; font-size: 11px; font-weight: 700; line-height: 1.45; }
 .result-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .result-choice { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; border: 0; border-radius: 17px; padding: 13px 14px; color: #07183d; opacity: .68; transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
 .result-choice.cools { background: #e7f3ff; }
