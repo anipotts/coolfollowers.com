@@ -39,7 +39,7 @@ export function LiquidHero({ children }: { children: ReactNode }) {
       </div>
 
       <div className="pointer-events-none absolute inset-4 z-0 rounded-[2.75rem] bg-white/48 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.9),0_30px_90px_rgba(35,79,130,0.12)] sm:inset-6" />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 w-full">{children}</div>
     </section>
   );
 }

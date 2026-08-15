@@ -42,6 +42,15 @@ export default function PrivacyPage() {
         </section>
 
         <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-bold">your review labels stay local</h2>
+          <p className="leading-7 text-muted-foreground">
+            Labels such as intentional and maybe are stored only in your local
+            Chrome profile so they survive a restart. You can clear them from
+            the extension at any time.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-4">
           <h2 className="text-xl font-bold">limited access</h2>
           <p className="leading-7 text-muted-foreground">
             The extension is limited to coolfollowers.com and instagram.com.

@@ -18,14 +18,14 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://coolfollowers.com"),
   title: "coolfollowers.com",
-  description: "See which followers are actually cool.",
+  description: "Scan beside Instagram and see which followers are actually cool.",
   authors: [{ name: "Ani Potts" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "/",
     title: "coolfollowers.com",
-    description: "See which followers are actually cool.",
+    description: "Scan beside Instagram and see which followers are actually cool.",
     siteName: "coolfollowers.com",
   },
   robots: {
