@@ -91,6 +91,16 @@ function scannerStartMessage(state: ScanState): InternalMessage {
 }
 
 async function sendScannerStart(tabId: number, state: ScanState) {
+  try {
+    await chrome.tabs.sendMessage(tabId, scannerStartMessage(state));
+    return;
+  } catch {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["instagram.js"],
+    });
+  }
+
   for (let attempt = 0; attempt < 6; attempt += 1) {
     try {
       await chrome.tabs.sendMessage(tabId, scannerStartMessage(state));
@@ -114,11 +124,12 @@ async function startScan() {
     await waitForTab(tab.id);
     await sendScannerStart(tab.id, state);
     return state;
-  } catch {
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "The Instagram scanner did not start.";
     return setState({
       ...state,
       phase: "error",
-      error: { code: "interrupted", message: "Instagram did not open correctly. Open Instagram in Chrome, then try again.", retryable: true },
+      error: { code: "interrupted", message: detail + " Reload Instagram, then try again.", retryable: true },
       updatedAt: Date.now(),
     });
   }

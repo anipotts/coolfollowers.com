@@ -3,7 +3,7 @@
   "name": "coolfollowers",
   "description": "See which Instagram followers are actually cool. Your data stays in Chrome.",
   "version": "1.0.0",
-  "permissions": ["storage", "sidePanel", "debugger"],
+  "permissions": ["storage", "sidePanel", "debugger", "scripting"],
   "host_permissions": [
     "https://www.instagram.com/*",
     "https://coolfollowers.com/*"
