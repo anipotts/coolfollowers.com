@@ -119,7 +119,7 @@ export function countFromControl(control: HTMLElement) {
 }
 
 export function findScrollable(root: HTMLElement): HTMLElement | null {
-  const candidates = [root, ...root.querySelectorAll<HTMLElement>("div")];
+  const candidates = [root, ...root.querySelectorAll<HTMLElement>("*")];
   let best: HTMLElement | null = null;
   let bestRange = 0;
 
@@ -140,6 +140,38 @@ export function findScrollable(root: HTMLElement): HTMLElement | null {
       : 0;
     return candidateRange > currentRange ? candidate : current;
   }, null);
+}
+
+export function advanceDialog(dialog: HTMLElement) {
+  const scroller = findScrollable(dialog);
+  const beforeTop = scroller?.scrollTop ?? 0;
+
+  if (scroller) {
+    const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const nextTop = Math.min(
+      maxTop,
+      beforeTop + Math.max(scroller.clientHeight * 0.86, 420),
+    );
+    if (typeof scroller.scrollTo === "function") {
+      scroller.scrollTo({ top: nextTop, behavior: "instant" });
+    }
+    if (scroller.scrollTop === beforeTop && nextTop > beforeTop) {
+      scroller.scrollTop = nextTop;
+    }
+    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }
+
+  // Instagram changes the element that owns scrolling as its virtualized list
+  // mounts. Keeping the last visible profile in view advances the real owner
+  // even when the earlier geometry snapshot pointed at a wrapper.
+  const profileAnchors = [...dialog.querySelectorAll<HTMLAnchorElement>("a[href]")]
+    .filter((anchor) => usernameFromHref(anchor.getAttribute("href") ?? ""));
+  const lastProfile = profileAnchors.at(-1);
+  if (lastProfile && typeof lastProfile.scrollIntoView === "function") {
+    lastProfile.scrollIntoView({ block: "end", inline: "nearest" });
+  }
+
+  return Boolean(scroller && scroller.scrollTop > beforeTop);
 }
 
 export function detectInstagramError(text: string): ScanError | null {
@@ -241,19 +273,7 @@ export async function scanDialog(
     }
 
     if (options.expected?.exact && records.size >= options.expected.value) break;
-    const scroller = findScrollable(dialog);
-    let advanced = false;
-    if (scroller) {
-      const beforeTop = scroller.scrollTop;
-      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-      const nextTop = Math.min(
-        maxTop,
-        scroller.scrollTop + Math.max(scroller.clientHeight * 0.86, 420),
-      );
-      scroller.scrollTop = nextTop;
-      advanced = scroller.scrollTop > beforeTop;
-      scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-    }
+    const advanced = advanceDialog(dialog);
     stableRounds = records.size === before && !advanced ? stableRounds + 1 : 0;
     if (stableRounds >= roundsToStop) break;
     await Promise.all([

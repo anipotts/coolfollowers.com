@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  advanceDialog,
   detectInstagramError,
   extractRecords,
+  findScrollable,
   parseCountLabel,
   scanDialog,
   usernameFromHref,
@@ -46,6 +48,40 @@ describe("Instagram DOM parsing", () => {
 });
 
 describe("dialog scanning", () => {
+  it("finds a non-div virtualized list owner", () => {
+    document.body.innerHTML = '<div role="dialog"><section class="list" style="overflow-y:auto"><a href="/ani/">ani</a></section></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const list = document.querySelector<HTMLElement>(".list");
+    if (!dialog || !list) throw new Error("test dialog missing");
+    Object.defineProperties(list, {
+      clientHeight: { value: 100 },
+      scrollHeight: { value: 1_000 },
+    });
+
+    expect(findScrollable(dialog)).toBe(list);
+  });
+
+  it("keeps the last visible profile in view while advancing", () => {
+    document.body.innerHTML = '<div role="dialog"><div class="list" style="overflow-y:auto"><a href="/ani/">ani</a><a href="/mira/">mira</a></div></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const list = document.querySelector<HTMLElement>(".list");
+    const last = document.querySelectorAll<HTMLAnchorElement>("a")[1];
+    if (!dialog || !list || !last) throw new Error("test dialog missing");
+    let scrollTop = 0;
+    Object.defineProperties(list, {
+      clientHeight: { value: 100 },
+      scrollHeight: { value: 1_000 },
+      scrollTop: { get: () => scrollTop, set: (value: number) => { scrollTop = value; } },
+      scrollTo: { value: ({ top }: ScrollToOptions) => { scrollTop = Number(top); } },
+    });
+    const scrollIntoView = vi.fn();
+    last.scrollIntoView = scrollIntoView;
+
+    expect(advanceDialog(dialog)).toBe(true);
+    expect(scrollTop).toBe(420);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "end", inline: "nearest" });
+  });
+
   it("completes only when an exact total is collected", async () => {
     setupAnimationFrame();
     document.body.innerHTML = '<div role="dialog"><a href="/ani/">ani</a></div>';
