@@ -183,16 +183,7 @@ export class CdpInputDriver {
     if (!observation) {
       throw new Error("Chrome could not ground the visible Instagram relation dialog.");
     }
-    const axResponse = await this.transport.sendCommand(
-      { tabId },
-      "Accessibility.getFullAXTree",
-    ) as { nodes?: AxNode[] };
-    const hrefs = [
-      ...new Set([
-        ...observation.hrefs,
-        ...extractRelationHrefs(axResponse.nodes ?? [], relation),
-      ]),
-    ];
+    const hrefs = observation.hrefs;
     if (recoveryLevel >= 2) {
       await this.transport.sendCommand(
         { tabId },

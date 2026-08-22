@@ -1,4 +1,4 @@
-import { countFromControl, findRelationControl, findRelationDialog, scanDialog, ScannerFailure, usernameFromHref, waitForValue } from "./scanner";
+import { countFromControl, extractDialogRecords, findRelationControl, findRelationDialog, scanDialog, ScannerFailure, usernameFromHref, waitForValue } from "./scanner";
 import type { InternalMessage } from "./internal";
 import { createFollowerRecord, type FollowerRecord, type RelationKind, type ScanError } from "../../src/lib/extension-protocol";
 
@@ -88,23 +88,55 @@ function send(message: InternalMessage) {
   return chrome.runtime.sendMessage(message).catch(() => undefined);
 }
 
+async function sendWithin<T>(message: InternalMessage, timeoutMs: number) {
+  let timeout = 0;
+  try {
+    return await Promise.race([
+      send(message) as Promise<T | undefined>,
+      new Promise<never>((_, reject) => {
+        timeout = window.setTimeout(
+          () => reject(new Error("Browser input timed out.")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function driveWheel(scanId: string, phase: RelationKind, recoveryLevel: number) {
-  const response = await send({
-    type: "SCANNER_WHEEL",
-    scanId,
-    phase,
-    recoveryLevel,
-  }) as { ok?: boolean; error?: string; hrefs?: string[] } | undefined;
-  if (response?.ok) {
-    return (response.hrefs ?? []).flatMap((href) => {
-      const username = usernameFromHref(href);
-      const record = username ? createFollowerRecord(username) : null;
-      return record ? [record] : [];
-    });
+  let lastError = "Browser-level input did not respond.";
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await sendWithin<{ ok?: boolean; error?: string; hrefs?: string[] }>({
+        type: "SCANNER_WHEEL",
+        scanId,
+        phase,
+        recoveryLevel,
+      }, 4_000);
+      if (response?.ok) {
+        return (response.hrefs ?? []).flatMap((href) => {
+          const username = usernameFromHref(href);
+          const record = username ? createFollowerRecord(username) : null;
+          return record ? [record] : [];
+        });
+      }
+      lastError = response?.error ?? lastError;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
+    if (attempt === 0) {
+      await sendWithin(
+        { type: "SCANNER_RELEASE_INPUT", scanId },
+        1_500,
+      ).catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
   }
   throw new ScannerFailure({
     code: "page_changed",
-    message: response?.error ?? "Chrome could not control the Instagram list. Reload Instagram and try again.",
+    message: lastError + " Keep the Instagram list open and try again.",
     retryable: true,
   });
 }
@@ -173,6 +205,19 @@ async function scanRelation(kind: RelationKind, scanId: string, signal: AbortSig
   const { dialog, expected } = await openDialog(kind, scanId, signal);
   if (!expected?.exact) {
     throw new ScannerFailure({ code: "incomplete_scan", message: "Instagram did not expose an exact " + kind + " total. Reload Instagram and try again.", retryable: true });
+  }
+  if (initialRecords.length === 0) {
+    await waitForValue(
+      () => extractDialogRecords(dialog).length > 0 ? true : null,
+      signal,
+      20_000,
+    ).catch(() => {
+      throw new ScannerFailure({
+        code: "page_changed",
+        message: "Instagram opened the " + kind + " list but did not load any accounts. Close it, then try again.",
+        retryable: true,
+      });
+    });
   }
   return scanDialog(dialog, {
     expected,

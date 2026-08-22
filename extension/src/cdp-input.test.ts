@@ -88,24 +88,14 @@ describe("CDP input driver", () => {
           },
         },
       })
-      .mockResolvedValueOnce({
-        nodes: [
-          { nodeId: "1", role: { value: "dialog" }, childIds: ["2", "3"] },
-          { nodeId: "2", role: { value: "heading" }, name: { value: "Followers" } },
-          { nodeId: "3", role: { value: "link" }, name: { value: "mira" } },
-        ],
-      })
       .mockResolvedValueOnce(undefined);
     const driver = new CdpInputDriver(api);
 
     const observation = await driver.step(42, "followers");
 
-    expect(observation.hrefs).toEqual([
-      "https://www.instagram.com/ani/",
-      "https://www.instagram.com/mira/",
-    ]);
+    expect(observation.hrefs).toEqual(["https://www.instagram.com/ani/"]);
     expect(api.sendCommand).toHaveBeenNthCalledWith(
-      3,
+      2,
       { tabId: 42 },
       "Input.dispatchMouseEvent",
       expect.objectContaining({ type: "mouseWheel", deltaY: 420 }),
@@ -123,22 +113,21 @@ describe("CDP input driver", () => {
           },
         },
       })
-      .mockResolvedValueOnce({ nodes: [] })
       .mockResolvedValueOnce({ result: { value: true } })
       .mockResolvedValue(undefined);
     const driver = new CdpInputDriver(api);
 
     await driver.step(42, "followers", 2);
 
-    expect(api.sendCommand).toHaveBeenCalledTimes(5);
+    expect(api.sendCommand).toHaveBeenCalledTimes(4);
     expect(api.sendCommand).toHaveBeenNthCalledWith(
-      3,
+      2,
       { tabId: 42 },
       "Runtime.evaluate",
       expect.objectContaining({ returnByValue: true }),
     );
     expect(api.sendCommand).toHaveBeenNthCalledWith(
-      4,
+      3,
       { tabId: 42 },
       "Input.dispatchMouseEvent",
       expect.objectContaining({ deltaY: 540 }),
