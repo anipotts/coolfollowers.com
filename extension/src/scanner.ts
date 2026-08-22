@@ -38,6 +38,19 @@ export interface DialogScanOptions {
   stableRounds?: number;
   terminalShortfallLimit?: number;
   waitMs?: number;
+  drive?: (target: ScrollTarget, recoveryLevel: number) => Promise<FollowerRecord[] | void>;
+  excludedUsernames?: string[];
+}
+
+export interface ScrollTarget {
+  x: number;
+  y: number;
+  deltaY: number;
+}
+
+export interface DialogObservation {
+  fingerprint: string;
+  target: ScrollTarget;
 }
 
 export class ScannerFailure extends Error {
@@ -99,6 +112,24 @@ export function findRelationControl(kind: "followers" | "following") {
   );
 }
 
+export function findRelationDialog(kind: "followers" | "following") {
+  return [...document.querySelectorAll<HTMLElement>('[role="dialog"]')]
+    .find((dialog) => {
+      const rect = dialog.getBoundingClientRect();
+      const style = getComputedStyle(dialog);
+      if (
+        rect.width < 40 ||
+        rect.height < 40 ||
+        style.display === "none" ||
+        style.visibility === "hidden"
+      ) return false;
+      const heading = dialog.querySelector<HTMLElement>(
+        'h1, h2, h3, [role="heading"]',
+      );
+      return heading?.textContent?.trim().toLowerCase() === kind;
+    }) ?? null;
+}
+
 export function countFromControl(control: HTMLElement) {
   const labels = [
     control.getAttribute("title"),
@@ -142,6 +173,76 @@ export function findScrollable(root: HTMLElement): HTMLElement | null {
   }, null);
 }
 
+function profileAnchors(dialog: HTMLElement) {
+  const direct = [...dialog.querySelectorAll<HTMLAnchorElement>("a[href]")];
+  const dialogRect = dialog.getBoundingClientRect();
+  const spatial = dialogRect.width > 40 && dialogRect.height > 40
+    ? [...document.querySelectorAll<HTMLAnchorElement>("a[href]")].filter((anchor) => {
+        const rect = anchor.getBoundingClientRect();
+        if (rect.width < 2 || rect.height < 2) return false;
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        if (
+          x < dialogRect.left ||
+          x > dialogRect.right ||
+          y < dialogRect.top ||
+          y > dialogRect.bottom
+        ) return false;
+        return true;
+      })
+    : [];
+
+  const candidates = spatial.length > 0 ? spatial : direct;
+
+  return candidates
+    .filter((anchor) => usernameFromHref(anchor.getAttribute("href") ?? ""));
+}
+
+export function extractDialogRecords(dialog: HTMLElement) {
+  return dedupeRecords(
+    profileAnchors(dialog).flatMap((anchor) => {
+      const username = usernameFromHref(anchor.getAttribute("href") ?? "");
+      const record = username ? createFollowerRecord(username) : null;
+      return record ? [record] : [];
+    }),
+  );
+}
+
+export function observeDialog(dialog: HTMLElement): DialogObservation {
+  const anchors = profileAnchors(dialog);
+  const scroller = findScrollable(dialog);
+  const candidateRect = scroller?.getBoundingClientRect();
+  const dialogRect = dialog.getBoundingClientRect();
+  const rect = candidateRect && candidateRect.width > 20 && candidateRect.height > 20
+    ? candidateRect
+    : dialogRect.width > 20 && dialogRect.height > 20
+      ? dialogRect
+      : null;
+  const x = rect
+    ? Math.min(window.innerWidth - 2, Math.max(2, rect.left + rect.width / 2))
+    : window.innerWidth / 2;
+  const y = rect
+    ? Math.min(window.innerHeight - 2, Math.max(2, rect.top + rect.height * 0.72))
+    : window.innerHeight / 2;
+  const usernames = anchors
+    .map((anchor) => usernameFromHref(anchor.getAttribute("href") ?? ""))
+    .filter((username): username is string => Boolean(username));
+
+  return {
+    fingerprint: [
+      usernames.at(0) ?? "",
+      usernames.at(-1) ?? "",
+      usernames.length,
+      Math.round(scroller?.scrollTop ?? 0),
+    ].join(":"),
+    target: {
+      x,
+      y,
+      deltaY: Math.round(Math.max(360, Math.min(720, (rect?.height ?? 520) * 0.82))),
+    },
+  };
+}
+
 export function advanceDialog(dialog: HTMLElement) {
   const scroller = findScrollable(dialog);
   const beforeTop = scroller?.scrollTop ?? 0;
@@ -164,9 +265,7 @@ export function advanceDialog(dialog: HTMLElement) {
   // Instagram changes the element that owns scrolling as its virtualized list
   // mounts. Keeping the last visible profile in view advances the real owner
   // even when the earlier geometry snapshot pointed at a wrapper.
-  const profileAnchors = [...dialog.querySelectorAll<HTMLAnchorElement>("a[href]")]
-    .filter((anchor) => usernameFromHref(anchor.getAttribute("href") ?? ""));
-  const lastProfile = profileAnchors.at(-1);
+  const lastProfile = profileAnchors(dialog).at(-1);
   if (lastProfile && typeof lastProfile.scrollIntoView === "function") {
     lastProfile.scrollIntoView({ block: "end", inline: "nearest" });
   }
@@ -257,6 +356,17 @@ export async function scanDialog(
   const waitMs = options.waitMs ?? 520;
   let stableRounds = 0;
   let lastReportedSize = -1;
+  const excluded = new Set(options.excludedUsernames ?? []);
+
+  const collect = () => {
+    for (const record of extractDialogRecords(dialog)) {
+      if (!excluded.has(record.username)) records.set(record.username, record);
+    }
+    if (records.size !== lastReportedSize) {
+      lastReportedSize = records.size;
+      options.onProgress([...records.values()]);
+    }
+  };
 
   while (!options.signal.aborted) {
     const error = detectInstagramError(
@@ -264,22 +374,30 @@ export async function scanDialog(
     );
     if (error) throw new ScannerFailure(error);
 
-    const before = records.size;
-    for (const record of extractRecords(dialog)) records.set(record.username, record);
-
-    if (records.size !== lastReportedSize) {
-      lastReportedSize = records.size;
-      options.onProgress([...records.values()]);
-    }
+    collect();
 
     if (options.expected?.exact && records.size >= options.expected.value) break;
-    const advanced = advanceDialog(dialog);
-    stableRounds = records.size === before && !advanced ? stableRounds + 1 : 0;
-    if (stableRounds >= roundsToStop) break;
+    const beforeSize = records.size;
+    const beforeObservation = observeDialog(dialog);
+    if (options.drive) {
+      const observed = await options.drive(beforeObservation.target, stableRounds);
+      for (const record of observed ?? []) {
+        if (!excluded.has(record.username)) records.set(record.username, record);
+      }
+    } else advanceDialog(dialog);
     await Promise.all([
       waitForMutation(dialog, waitMs, options.signal),
       nextFrameOrTimeout(options.signal),
     ]);
+    collect();
+    const afterObservation = observeDialog(dialog);
+    const environmentChanged = options.drive
+      ? records.size > beforeSize
+      : afterObservation.fingerprint !== beforeObservation.fingerprint;
+    stableRounds = records.size === beforeSize && !environmentChanged
+      ? stableRounds + 1
+      : 0;
+    if (stableRounds >= roundsToStop) break;
   }
 
   if (options.signal.aborted) throw options.signal.reason;

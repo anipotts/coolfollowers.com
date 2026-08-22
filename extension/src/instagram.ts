@@ -1,6 +1,6 @@
-import { countFromControl, findRelationControl, scanDialog, ScannerFailure, waitForValue } from "./scanner";
+import { countFromControl, findRelationControl, findRelationDialog, scanDialog, ScannerFailure, usernameFromHref, waitForValue } from "./scanner";
 import type { InternalMessage } from "./internal";
-import type { FollowerRecord, RelationKind, ScanError } from "../../src/lib/extension-protocol";
+import { createFollowerRecord, type FollowerRecord, type RelationKind, type ScanError } from "../../src/lib/extension-protocol";
 
 let activeController: AbortController | null = null;
 let activeScanId: string | null = null;
@@ -88,6 +88,27 @@ function send(message: InternalMessage) {
   return chrome.runtime.sendMessage(message).catch(() => undefined);
 }
 
+async function driveWheel(scanId: string, phase: RelationKind, recoveryLevel: number) {
+  const response = await send({
+    type: "SCANNER_WHEEL",
+    scanId,
+    phase,
+    recoveryLevel,
+  }) as { ok?: boolean; error?: string; hrefs?: string[] } | undefined;
+  if (response?.ok) {
+    return (response.hrefs ?? []).flatMap((href) => {
+      const username = usernameFromHref(href);
+      const record = username ? createFollowerRecord(username) : null;
+      return record ? [record] : [];
+    });
+  }
+  throw new ScannerFailure({
+    code: "page_changed",
+    message: response?.error ?? "Chrome could not control the Instagram list. Reload Instagram and try again.",
+    retryable: true,
+  });
+}
+
 function currentProfilePath() {
   const followersLink = document.querySelector<HTMLAnchorElement>('a[href*="/followers/"]');
   const href = followersLink?.getAttribute("href");
@@ -126,7 +147,7 @@ async function openDialog(kind: RelationKind, scanId: string, signal: AbortSigna
     control,
   );
   try {
-    const dialog = await waitForValue(() => document.querySelector<HTMLElement>('[role="dialog"]'), signal, 60_000);
+    const dialog = await waitForValue(() => findRelationDialog(kind), signal, 60_000);
     return { dialog, expected };
   } finally {
     hideCoach();
@@ -148,7 +169,7 @@ async function waitForDialogClose(signal: AbortSignal) {
   }
 }
 
-async function scanRelation(kind: RelationKind, scanId: string, signal: AbortSignal, initialRecords: FollowerRecord[] = []) {
+async function scanRelation(kind: RelationKind, scanId: string, signal: AbortSignal, profileUsername: string, initialRecords: FollowerRecord[] = []) {
   const { dialog, expected } = await openDialog(kind, scanId, signal);
   if (!expected?.exact) {
     throw new ScannerFailure({ code: "incomplete_scan", message: "Instagram did not expose an exact " + kind + " total. Reload Instagram and try again.", retryable: true });
@@ -158,6 +179,11 @@ async function scanRelation(kind: RelationKind, scanId: string, signal: AbortSig
     initialRecords,
     signal,
     terminalShortfallLimit: kind === "following" ? 1 : 0,
+    drive: (target, recoveryLevel) => {
+      void target;
+      return driveWheel(scanId, kind, recoveryLevel);
+    },
+    excludedUsernames: [profileUsername],
     onProgress: (records) => void send({ type: "SCANNER_PROGRESS", scanId, phase: kind, records, expected: expected.value, expectedIsExact: true }),
   });
 }
@@ -194,14 +220,14 @@ async function startScanner(message: Extract<InternalMessage, { type: "SCANNER_S
 
     let followers = message.resume.followers ?? [];
     if (followers.length !== followerExpected.value) {
-      followers = await scanRelation("followers", message.scanId, controller.signal, followers);
+      followers = await scanRelation("followers", message.scanId, controller.signal, username, followers);
       await waitForDialogClose(controller.signal);
     } else if (document.querySelector('[role="dialog"]')) {
       await waitForDialogClose(controller.signal);
     }
 
     let following = message.resume.following ?? [];
-    if (following.length !== followingExpected.value) following = await scanRelation("following", message.scanId, controller.signal, following);
+    if (following.length !== followingExpected.value) following = await scanRelation("following", message.scanId, controller.signal, username, following);
     await send({ type: "SCANNER_COMPLETE", scanId: message.scanId, username, followers, following });
   } catch (error) {
     if (!controller.signal.aborted) await send({ type: "SCANNER_ERROR", scanId: message.scanId, error: normalizeFailure(error) });

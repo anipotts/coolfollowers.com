@@ -9,12 +9,15 @@ import {
   type WebRequest,
 } from "../../src/lib/extension-protocol";
 import type { InternalMessage } from "./internal";
+import { CdpInputDriver } from "./cdp-input";
 
 const STORAGE_KEY = "coolfollowersScanState";
 const INSTAGRAM_URL = "https://www.instagram.com/";
 const SITE_URLS = ["https://coolfollowers.com/*", "http://localhost/*", "http://127.0.0.1/*"];
 
 type BackgroundMessage = WebRequest | InternalMessage | { type: "COOLFOLLOWERS_BRIDGE_READY" };
+
+const inputDriver = new CdpInputDriver(chrome.debugger);
 
 async function getState(): Promise<ScanState> {
   const stored = await chrome.storage.session.get(STORAGE_KEY);
@@ -125,9 +128,10 @@ async function cancelScan() {
   const state = await getState();
   const tabs = await chrome.tabs.query({ url: "https://www.instagram.com/*" });
   await Promise.allSettled(
-    tabs.filter((tab) => tab.id !== undefined).map((tab) =>
+    tabs.filter((tab) => tab.id !== undefined).flatMap((tab) => [
       chrome.tabs.sendMessage(tab.id as number, { type: "SCANNER_CANCEL", scanId: state.scanId } satisfies InternalMessage),
-    ),
+      inputDriver.detach(tab.id as number),
+    ]),
   );
   return setState({ ...emptyScanState(), phase: "cancelled", updatedAt: Date.now() });
 }
@@ -184,6 +188,31 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
       sendResponse(state);
       return;
     }
+    if (message.type === "SCANNER_WHEEL") {
+      if (sender.tab?.id === undefined) {
+        sendResponse({ ok: false, error: "Instagram tab unavailable." });
+        return;
+      }
+      try {
+        const observation = await inputDriver.step(
+          sender.tab.id,
+          message.phase,
+          message.recoveryLevel,
+        );
+        sendResponse({ ok: true, hrefs: observation.hrefs });
+      } catch (error) {
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : "Browser-level input failed.",
+        });
+      }
+      return;
+    }
+    if (message.type === "SCANNER_RELEASE_INPUT") {
+      if (sender.tab?.id !== undefined) await inputDriver.detach(sender.tab.id);
+      sendResponse({ ok: true });
+      return;
+    }
     if (message.type === "SCANNER_AWAITING_USER") {
       sendResponse(await setState(awaitingState(state, message.phase)));
       return;
@@ -205,6 +234,7 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
       return;
     }
     if (message.type === "SCANNER_COMPLETE") {
+      if (sender.tab?.id !== undefined) await inputDriver.detach(sender.tab.id);
       const { cools, fools } = classifyRelationships(message.followers, message.following);
       const followingExpected = state.followingExpected ?? message.following.length;
       const followingShortfall = Math.max(0, followingExpected - message.following.length);
@@ -229,6 +259,7 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
       return;
     }
     if (message.type === "SCANNER_ERROR") {
+      if (sender.tab?.id !== undefined) await inputDriver.detach(sender.tab.id);
       sendResponse(await setState({ ...state, phase: "error", error: message.error, updatedAt: Date.now() }));
     }
   })();
@@ -237,6 +268,10 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
 
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+});
+
+chrome.debugger.onDetach.addListener((source) => {
+  if (source.tabId !== undefined) inputDriver.markDetached(source.tabId);
 });
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });

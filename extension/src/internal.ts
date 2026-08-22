@@ -9,6 +9,13 @@ export type InternalMessage =
     }
   | { type: "SCANNER_CANCEL"; scanId?: string }
   | {
+      type: "SCANNER_WHEEL";
+      scanId: string;
+      phase: RelationKind;
+      recoveryLevel: number;
+    }
+  | { type: "SCANNER_RELEASE_INPUT"; scanId: string }
+  | {
       type: "SCANNER_IDENTIFIED";
       scanId: string;
       username: string;

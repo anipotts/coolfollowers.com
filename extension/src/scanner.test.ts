@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   advanceDialog,
   detectInstagramError,
+  extractDialogRecords,
   extractRecords,
+  findRelationDialog,
   findScrollable,
+  observeDialog,
   parseCountLabel,
   scanDialog,
   usernameFromHref,
@@ -45,9 +48,91 @@ describe("Instagram DOM parsing", () => {
     );
     expect(detectInstagramError("followers")).toBeNull();
   });
+
+  it("grounds the requested relation dialog by its accessible heading", () => {
+    document.body.innerHTML = `
+      <div role="dialog"><h2>Messages</h2></div>
+      <div role="dialog"><h1>Followers</h1><a href="/ani/">ani</a></div>
+    `;
+    const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+    dialogs[0].getBoundingClientRect = () => ({
+      x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0,
+      width: 0, height: 0, toJSON: () => undefined,
+    });
+    dialogs[1].getBoundingClientRect = () => ({
+      x: 100, y: 100, left: 100, top: 100, right: 600, bottom: 700,
+      width: 500, height: 600, toJSON: () => undefined,
+    });
+
+    expect(findRelationDialog("followers")?.textContent).toContain("ani");
+    expect(findRelationDialog("following")).toBeNull();
+  });
+
+  it("collects visible portal rows rendered beside the dialog node", () => {
+    document.body.innerHTML = `
+      <div role="dialog"><h1>Followers</h1></div>
+      <div class="portal-row"><a href="/ani/"><span>ani</span></a></div>
+    `;
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const anchor = document.querySelector<HTMLAnchorElement>("a");
+    if (!dialog || !anchor) throw new Error("test dialog missing");
+    dialog.getBoundingClientRect = () => ({
+      x: 100, y: 100, left: 100, top: 100, right: 600, bottom: 700,
+      width: 500, height: 600, toJSON: () => undefined,
+    });
+    anchor.getBoundingClientRect = () => ({
+      x: 180, y: 180, left: 180, top: 180, right: 300, bottom: 220,
+      width: 120, height: 40, toJSON: () => undefined,
+    });
+    expect(extractDialogRecords(dialog).map((record) => record.username)).toEqual(["ani"]);
+  });
 });
 
 describe("dialog scanning", () => {
+  it("grounds wheel input inside the visible dialog", () => {
+    document.body.innerHTML = '<div role="dialog"><a href="/ani/">ani</a></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error("test dialog missing");
+    dialog.getBoundingClientRect = () => ({
+      x: 100,
+      y: 80,
+      left: 100,
+      top: 80,
+      right: 600,
+      bottom: 680,
+      width: 500,
+      height: 600,
+      toJSON: () => undefined,
+    });
+
+    expect(observeDialog(dialog).target).toEqual({
+      x: 350,
+      y: 512,
+      deltaY: 492,
+    });
+  });
+
+  it("collects recycled rows after browser-level wheel input", async () => {
+    setupAnimationFrame();
+    document.body.innerHTML = '<div role="dialog"><a href="/ani/">ani</a></div>';
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error("test dialog missing");
+    const drive = vi.fn(async () => {
+      dialog.innerHTML = '<a href="/mira/">mira</a>';
+    });
+
+    const records = await scanDialog(dialog, {
+      expected: { value: 2, exact: true },
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      drive,
+      waitMs: 1,
+    });
+
+    expect(records.map((record) => record.username)).toEqual(["ani", "mira"]);
+    expect(drive).toHaveBeenCalledOnce();
+  });
+
   it("finds a non-div virtualized list owner", () => {
     document.body.innerHTML = '<div role="dialog"><section class="list" style="overflow-y:auto"><a href="/ani/">ani</a></section></div>';
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
