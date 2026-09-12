@@ -1,0 +1,58 @@
+# Dependency cleanup, 2026-09-12
+
+This maintenance branch is based on the preserved local extension rebuild
+`a2a43ab`, not the older dashboard on `main`. It does not implement the proposed
+swipe-to-review interaction, perform Instagram actions, or approve a release of
+the rebuild. The original checkout is unchanged.
+
+## Pull request disposition
+
+| PR | Dependency | Disposition |
+| --- | --- | --- |
+| #3 | nanoid 3.3.18 | Closed as superseded by #11, which contains 3.3.19 |
+| #4 | brace-expansion 1.1.18 and 2.1.4 | Open; both versions already present in the rebuild |
+| #5 | js-yaml 4.3.1 | Open; version already present in the rebuild |
+| #6 | Next 16.3.3 and postcss 8.5.23 | Closed as superseded by #11, which contains Next 16.3.4 and postcss 8.5.23 |
+| #8 | @humanfs/node 0.16.8 | Open; incorporated into this maintenance branch |
+| #9 | browserslist 4.28.9 | Open; incorporated into this maintenance branch |
+| #10 | baseline-browser-mapping 2.11.21 | Closed as superseded by #11, which contains 2.11.22 |
+| #11 | Next 16.3.4 and sharp 0.35.4 | Open; this branch resolves Next 16.3.5 and sharp 0.35.4 |
+
+Supersession was checked against #11 head
+`acfa9781f61021dc4ca16068c0f24228060742ab`. Closures did not delete branches or
+send comments. They are not merges. The five remaining PRs must not be closed
+merely because their updates exist on an unmerged maintenance branch.
+
+The refreshed lockfile meets or exceeds every requested dependency version,
+including nested brace-expansion and postcss copies. Next and eslint-config-next
+are aligned at 16.3.5. The root postcss remains at 8.5.26 and Next's copy at
+8.5.23. No application behavior or extension permission changed in this patch.
+
+## Verification
+
+- Clean `npm ci --no-audit --no-fund` succeeded.
+- `npm run verify` passed lint, all 31 tests in four files, the extension build,
+  and the static site build on local Node 25.8.2 / npm 11.11.1.
+- `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities.
+- Every requested package/version floor and Next/ESLint alignment was checked
+  directly in the lockfile, including nested copies.
+- `git diff --check` passed and the new workflow parsed as valid YAML.
+
+The branch adds a `verify` GitHub Actions job using Node 24 and repository npm
+11.6.2. It has read-only repository permissions, pinned action revisions, and
+no secrets, Instagram session, deployment, or browser-account interaction.
+Local tests are not evidence of a provider CI run or a working personal-account
+scan. Provider run results must be checked at the pushed head.
+
+## Merge gate and next action
+
+Live main ruleset 21578156 requires PRs, prevents deletion and non-fast-forward
+updates, and has no bypass actors. It has no required status checks or strict
+up-to-date checking. Classic branch protection returned 404. This fails the
+current merge gate, so no merge or auto-merge was attempted.
+
+Changing that shared repository policy requires separate approval. This branch
+does not change it. After an approved protection setup and an explicit decision
+to integrate the preserved rebuild, use exact-head provider checks and fresh
+protection evidence before merging. Only then close the remaining dependency
+PRs if their changes are demonstrably included in the integration.

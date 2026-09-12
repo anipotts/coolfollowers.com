@@ -26,6 +26,7 @@
 # misc
 .DS_Store
 *.pem
+/CHECKOUT-ROLE.local.md
 
 # debug
 npm-debug.log*
